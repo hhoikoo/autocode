@@ -1,0 +1,8 @@
+{
+  "name": "autocode",
+  "description": "Skills, agents, hooks, and provider scripts for the autocode SDLC workflow.",
+  "author": { "name": "autocode" },
+  "license": "Apache-2.0",
+  "repository": "https://github.com/hhoikoo/autocode",
+  "keywords": ["sdlc", "git", "commit", "pr", "issue", "workflow"]
+}

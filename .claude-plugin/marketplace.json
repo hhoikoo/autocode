@@ -1,0 +1,25 @@
+{
+  "name": "autocode",
+  "owner": {
+    "name": "autocode"
+  },
+  "metadata": {
+    "description": "A Claude Code plugin that ships opinionated skills, subagents, hooks, and provider scripts for everyday coding work: issues, branches, PRs, and reviews."
+  },
+  "plugins": [
+    {
+      "name": "autocode",
+      "source": "./plugins/autocode",
+      "description": "Skills, agents, hooks, and provider scripts for the autocode SDLC workflow.",
+      "keywords": [
+        "sdlc",
+        "git",
+        "commit",
+        "pr",
+        "issue",
+        "workflow"
+      ],
+      "category": "core"
+    }
+  ]
+}

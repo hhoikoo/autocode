@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# View a GitHub issue and emit the issue-tracker contract JSON.
+# Usage: issue-view.sh <key>
+# Depends on: gh, jq.
+
+if ! command -v gh >/dev/null 2>&1; then
+  echo "issue-view.sh: gh CLI not on PATH; install GitHub CLI and run 'gh auth login'" >&2
+  exit 2
+fi
+
+if [[ $# -lt 1 ]]; then
+  echo "Usage: issue-view.sh <key>" >&2
+  exit 1
+fi
+
+issue_number="$1"
+
+# Resolve parent via the sub-issues GraphQL API. Suppress failure; emit empty.
+repo=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')
+owner="${repo%%/*}"
+name="${repo##*/}"
+
+# shellcheck disable=SC2016
+parent_number=$(gh api graphql \
+  -H "GraphQL-Features:sub_issues" \
+  -f query='
+    query($owner: String!, $name: String!, $number: Int!) {
+      repository(owner: $owner, name: $name) {
+        issue(number: $number) {
+          parent { number }
+        }
+      }
+    }
+  ' \
+  -f owner="${owner}" \
+  -f name="${name}" \
+  -F number="${issue_number}" \
+  --jq '.data.repository.issue.parent.number // empty' 2>/dev/null || echo "")
+
+# Map the autocode status labels back to the contract status values; fall back
+# to GitHub open/closed.
+gh issue view "${issue_number}" --json number,title,body,labels,state \
+  | jq --arg parent "${parent_number}" '
+    {
+      key: (.number | tostring),
+      summary: .title,
+      description: (.body // ""),
+      type: (
+        [.labels[].name] |
+        if any(. == "type:epic") then "Epic"
+        elif any(. == "type:story") then "Story"
+        elif any(. == "type:bug") then "Bug"
+        elif any(. == "type:task") then "Task"
+        else "Task"
+        end
+      ),
+      status: (
+        if .state == "CLOSED" then "done"
+        else (
+          [.labels[].name] as $names |
+          if ($names | any(. == "autocode:in-review")) then "in-review"
+          elif ($names | any(. == "autocode:in-progress")) then "in-progress"
+          elif ($names | any(. == "autocode:todo")) then "todo"
+          else "todo"
+          end
+        )
+        end
+      ),
+      parent: $parent
+    }
+  '

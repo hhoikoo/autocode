@@ -1,0 +1,9 @@
+{
+  "provider": {
+    "issue-tracker": "github",
+    "git-remote": "github"
+  },
+  "workflow": {
+    "auto-merge-sub-issues": false
+  }
+}

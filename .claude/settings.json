@@ -1,0 +1,33 @@
+{
+  "respectGitignore": true,
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "includeCoAuthoredBy": false,
+  "permissions": {
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Write(.env)",
+      "Write(.env.*)"
+    ],
+    "defaultMode": "bypassPermissions"
+  },
+  "outputStyle": "Concise",
+  "skipDangerousModePermissionPrompt": true,
+  "extraKnownMarketplaces": {
+    "autocode": {
+      "source": {
+        "source": "github",
+        "repo": "hhoikoo/autocode"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "autocode@autocode": true
+  },
+  "env": {
+    "AUTOCODE_CONFIG_DIR": "$CLAUDE_PROJECT_DIR/.autocode"
+  }
+}

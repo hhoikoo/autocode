@@ -1,0 +1,1 @@
+../../../autocode/_config/output-styles/concise.md
