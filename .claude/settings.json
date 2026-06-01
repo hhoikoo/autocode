@@ -28,6 +28,6 @@
     "autocode@autocode": true
   },
   "env": {
-    "AUTOCODE_CONFIG_DIR": "$CLAUDE_PROJECT_DIR/.autocode"
+    "AUTOCODE_CONFIG_DIR": ".autocode"
   }
 }

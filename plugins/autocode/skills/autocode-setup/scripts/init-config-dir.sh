@@ -6,9 +6,17 @@ set -euo pipefail
 #
 # Usage: init-config-dir.sh <config-dir-path>
 #
-# Picks settings file:
-#   - <repo-root>/.claude/settings.json       if path == <repo-root>/.autocode (committed default)
-#   - <repo-root>/.claude/settings.local.json otherwise (per-user)
+# Picks settings file and persisted value:
+#   - committed default (path == <repo-root>/.autocode): write a project-relative
+#     ".autocode" into <repo-root>/.claude/settings.json. The settings env block
+#     is not shell-expanded and CLAUDE_PROJECT_DIR is not in the Bash env, so an
+#     absolute path would be machine-specific and "$CLAUDE_PROJECT_DIR/..." would
+#     never resolve; a relative path resolves from the project-root cwd and is
+#     safe to commit.
+#   - any other path (per-user): write the absolute path into
+#     <repo-root>/.claude/settings.local.json (gitignored), since it may live
+#     outside the repo.
+# Stdout is always the absolute path, for the caller's use within this session.
 
 if [[ $# -ne 1 ]]; then
   echo "usage: $0 <config-dir-path>" >&2
@@ -35,8 +43,10 @@ mkdir -p "${abs_path}"
 default_path="${repo_root}/.autocode"
 if [[ "${abs_path}" == "${default_path}" ]]; then
   settings_file="${repo_root}/.claude/settings.json"
+  config_value=".autocode"
 else
   settings_file="${repo_root}/.claude/settings.local.json"
+  config_value="${abs_path}"
 fi
 
 mkdir -p "$(dirname "${settings_file}")"
@@ -50,16 +60,16 @@ if ! jq -e . "${settings_file}" >/dev/null 2>&1; then
 fi
 
 existing=$(jq -r '.env.AUTOCODE_CONFIG_DIR // empty' "${settings_file}")
-if [[ -n "${existing}" && "${existing}" != "${abs_path}" ]]; then
+if [[ -n "${existing}" && "${existing}" != "${config_value}" ]]; then
   echo "error: ${settings_file} already sets AUTOCODE_CONFIG_DIR=${existing}" >&2
   echo "remove or update it manually, then re-run" >&2
   exit 1
 fi
 
 tmp=$(mktemp)
-jq --arg v "${abs_path}" '.env = (.env // {}) | .env.AUTOCODE_CONFIG_DIR = $v' \
+jq --arg v "${config_value}" '.env = (.env // {}) | .env.AUTOCODE_CONFIG_DIR = $v' \
   "${settings_file}" > "${tmp}"
 mv "${tmp}" "${settings_file}"
 
-echo "AUTOCODE_CONFIG_DIR=${abs_path} written to ${settings_file}" >&2
+echo "AUTOCODE_CONFIG_DIR=${config_value} written to ${settings_file}" >&2
 echo "${abs_path}"
