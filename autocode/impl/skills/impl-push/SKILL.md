@@ -1,6 +1,8 @@
 # Impl push
 
-Commit local changes and open a PR.
+Commit local changes and open a PR for the unit of work in progress.
+
+When the worktree carries a unit context (`.autocode/.impl-context`, written by `impl-start`), this also records the unit in the epic rollup and advances the sub-issue. Layout and lifecycle: `@~/.autocode/autocode/design/design-folder.md`.
 
 ## Args
 
@@ -12,20 +14,25 @@ Optional context note (rationale or extra detail). Forwarded to `git-commit` as 
    - `git rev-parse --abbrev-ref HEAD` should NOT match the default branch.
    - If on default, delegate to `impl-start` to create a worktree+branch, then continue.
 2. Run `git status` and `git diff` to confirm uncommitted changes exist. If clean, stop with a note: "no changes to push".
-3. Delegate to `git-commit` skill. Verification is owned by the repo's pre-commit hooks; this skill does not run a verify step.
-4. Delegate to `pr-create` skill.
-5. Final report. No autonomous post-PR loop. Print:
+3. If `.autocode/.impl-context` exists, read it for `design_id`, `shortname`, `slug`, `unit_key`. Append one block to the epic rollup `.autocode/design/<design_id>-<shortname>/PROGRESS.md` in the format from the design-folder spec: `## <slug> — <today>`, then `Unit: #<unit_key>`, a one-paragraph what-shipped summary, and a `Notes:` line for anything worth knowing (drawn from `progress/<slug>.md`; omit if none). Create `PROGRESS.md` with a `# Progress: <shortname>` heading if it does not exist. This block is committed with the unit, so it lands on merge.
+4. Delegate to `git-commit` (stages the code plus `PROGRESS.md` and `progress/<slug>.md`). Verification is owned by the repo's pre-commit hooks; this skill does not run a verify step.
+5. Delegate to `pr-create`. Its generated body includes `Closes #<unit_key>`, so the merge will close the sub-issue (advancing the unit to `done`).
+6. If a unit context was present, advance the sub-issue: `provider/run.sh issue-tracker issue-transition <unit_key> in-review`.
+7. Final report. No autonomous post-PR loop. Print:
    - PR URL.
    - Branch.
+   - Unit slug + sub-issue key (when in a unit context).
    - Static next-step suggestions:
      - `/pr-fix-ci` if CI fails.
      - `/pr-review` when reviews land.
      - `/pr-rebase` if base advances.
+     - `/impl-start --from-design <design_id>` to pick the next ready unit.
 
 ## Rules
 
 - Delegate. Don't inline commit logic, don't inline PR-body generation, don't run a verify step.
 - Never push with `--force` or `--force-with-lease`. Plain `git push` only (handled by `git-commit`).
 - No autonomous loops after the PR opens; user dispatches the next skill.
+- Outside a unit context (no `.autocode/.impl-context`), steps 3 and 6 are skipped; the skill behaves as a plain commit-and-PR.
 
 $ARGUMENTS

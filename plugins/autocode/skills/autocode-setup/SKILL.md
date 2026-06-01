@@ -37,7 +37,7 @@ The script creates the directory and writes `AUTOCODE_CONFIG_DIR` into the corre
 
 Read `~/.autocode/autocode/_config/settings-schema.md` first; it is the source of truth for which keys exist, which namespace each belongs to, and the shared-vs-local split. Each key lands in exactly one file:
 
-- Shared keys (`provider.*`, `workflow.*`) -> `$AUTOCODE_CONFIG_DIR/settings.json` (committed).
+- Shared keys (`provider.*`) -> `$AUTOCODE_CONFIG_DIR/settings.json` (committed).
 - Local keys (`paths.*`) -> `$AUTOCODE_CONFIG_DIR/settings.local.json` (gitignored).
 
 Collect a value for every required key, plus any optional key whose default the user should override. Currently that means asking via `AskUserQuestion`:
@@ -45,7 +45,6 @@ Collect a value for every required key, plus any optional key whose default the 
 - `provider.issue-tracker` (required, shared): default `github`.
 - `provider.git-remote` (required, shared): default `github`.
 - `provider.ci` (optional, shared): default is the same value as `provider.git-remote`. When the user accepts the default, omit `--ci=` from the script invocation so `provider/run.sh` falls back to `provider.git-remote` at dispatch time.
-- `workflow.auto-merge-sub-issues` (shared): leave unset unless the user asks for it.
 - `paths.projects-dir` (required, local): default is the parent of the repo root (`dirname "$repo_root"`); surface that default in the prompt. Accept absolute paths or `~/`-prefixed paths; resolve `~` to the user's home before writing.
 
 Build each file's JSON via the helper, one scope at a time:
@@ -54,8 +53,7 @@ Build each file's JSON via the helper, one scope at a time:
 bash ${CLAUDE_SKILL_DIR}/scripts/write-settings.sh --scope=shared \
   --issue-tracker=<value> \
   --git-remote=<value> \
-  [--ci=<value>] \
-  [--auto-merge-sub-issues=true]
+  [--ci=<value>]
 
 bash ${CLAUDE_SKILL_DIR}/scripts/write-settings.sh --scope=local \
   --projects-dir=<resolved-path>
@@ -107,9 +105,19 @@ Rules:
 
 Use Read + Edit (or Write for the create-from-scratch case). Do not call out to a script.
 
+## Step 6: Optional design fan-out Action
+
+Ask the user (via `AskUserQuestion`, default no) whether to install the mechanical design fan-out GitHub Action. Frame: "For repos that fully adopt autocode. On merge to the default branch, it turns a merged design folder into an epic issue plus per-unit sub-issues, with no Claude involved. Without it, run the `/design-fanout` skill manually after a design PR merges." If the user declines, skip.
+
+If the user agrees:
+
+- Copy `~/.autocode/plugins/autocode/templates/autocode-design-fanout.yml` to `<repo-root>/.github/workflows/autocode-design-fanout.yml` (`mkdir -p` the workflows dir).
+- If the repo's default branch is not `main`, edit the `branches:` line in the copied file to match.
+- If the destination already exists, show a diff and ask before overwriting.
+
 ## Done
 
-After all five steps, summarize what was written and what was skipped, and tell the user:
+After these steps, summarize what was written and what was skipped, and tell the user:
 
 - They can run `/autocode-update` periodically to pull the latest autocode and reconcile conventions.
 - They can re-run `/autocode-setup` safely; each step skips when already complete.

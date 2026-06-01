@@ -9,7 +9,7 @@ Each key has exactly one home. No merging, no precedence rules. Scope is determi
 
 | Namespace | Scope | File |
 |---|---|---|
-| `provider.*`, `workflow.*` | shared | `settings.json` |
+| `provider.*` | shared | `settings.json` |
 | `paths.*` | local | `settings.local.json` |
 
 `/autocode-setup` writes `AUTOCODE_CONFIG_DIR` into a Claude Code settings file (`.claude/settings.json` for the in-repo default, `.claude/settings.local.json` otherwise) so readers can locate the config dir from any session.
@@ -21,7 +21,6 @@ Each key has exactly one home. No merging, no precedence rules. Scope is determi
 | `provider.issue-tracker` | string | (required) | Which issue-tracker provider scripts to dispatch to. Resolved by `provider/run.sh` as `provider/issue-tracker/<value>/<feature>.sh`. Supported values: `github`. |
 | `provider.git-remote` | string | (required) | Which git-remote provider scripts to dispatch to. Resolved by `provider/run.sh` as `provider/git-remote/<value>/<feature>.sh`. Supported values: `github`. |
 | `provider.ci` | string | value of `provider.git-remote` | Which ci provider scripts to dispatch to. Resolved by `provider/run.sh` as `provider/ci/<value>/<feature>.sh`. When unset or empty, the dispatcher falls back to `provider.git-remote`. Supported values: `github`. |
-| `workflow.auto-merge-sub-issues` | bool | `false` | If true, sub-issue PRs auto-merge once required checks pass. Honored by workflow-phase skills (when they land). |
 
 ## Local keys (`settings.local.json`)
 
