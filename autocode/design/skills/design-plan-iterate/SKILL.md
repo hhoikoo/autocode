@@ -9,9 +9,9 @@ Triage and apply review comments on a design-doc PR.
 ## Differences vs pr-review
 
 - Triage rubric weighs design clarity, scope alignment, and assumption auditing over code correctness.
-- Disagreement responses cite specific plan sections (architecture impact, edge cases, testing strategy).
-- Edits land in `DESIGN.md`, not in source code.
-- No build verify step (the PR contains a markdown file, not code).
+- Disagreement responses cite specific plan sections (architecture impact, edge cases, testing strategy) or specific units.
+- Edits land in the design folder (`DESIGN.md` or `units/*.md`), not in source code.
+- No build verify step (the PR contains markdown, not code).
 - Commits go through `git-commit`.
 
 ## Workflow
@@ -36,7 +36,7 @@ Triage and apply review comments on a design-doc PR.
    | 30-69 | Optional; update if trivial, else resolve with explanation |
    | 0-29 | Resolve as spurious |
 
-4. Apply valid edits to the `DESIGN.md` file. Group related edits.
+4. Apply valid edits to `DESIGN.md` or the relevant `units/*.md`. Group related edits.
 5. Delegate commit to `git-commit`.
 6. Reply and resolve threads:
    - `provider/run.sh git-remote pr-comment-reply <pr> <comment-id> "<text>"` for each thread that needs a reply.
@@ -46,8 +46,8 @@ Triage and apply review comments on a design-doc PR.
 
 ## Rules
 
-- Disagreement is direct but respectful. Cite specific plan sections.
-- Edits land in `DESIGN.md` only. Never edit source code from this skill.
+- Disagreement is direct but respectful. Cite specific plan sections or units.
+- Edits land in the design folder only (`DESIGN.md` or `units/*.md`). Never edit source code from this skill.
 - No verify step (the PR is markdown).
 - Never `--no-verify` on commits; delegated `git-commit` handles hook failures.
 - Never resolve a thread without an explanation comment.

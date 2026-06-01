@@ -15,9 +15,10 @@ Autocode reasons about issues using four states, regardless of provider:
 
 | Issue kind | todo -> in-progress | in-progress -> in-review | in-review -> done |
 |---|---|---|---|
-| Proposal | Worktree / branch created for the proposal document | Proposal document PR opened | Proposal document PR merged |
-| Epic | First sub-issue starts | Final epic-level PR opened | Epic-level PR merged |
-| Sub-issue | Sub-issue work scheduled on a worktree | Sub-issue PR review created | Sub-issue PR merged into the epic branch |
+| Epic | First unit starts (`impl-start`) | n/a (no aggregate epic PR) | All units done; `impl-archive` closes the epic |
+| Sub-issue (unit) | `impl-start` picks the unit | `impl-push` opens the unit PR | Unit PR merges (auto-closes via `Closes #`) |
+
+The epic has no `in-review` state: there is no aggregate epic PR. Each unit has its own PR that merges to the default branch; a unit's dependencies being `done` means their code is already on the default branch.
 
 ## Inspect
 

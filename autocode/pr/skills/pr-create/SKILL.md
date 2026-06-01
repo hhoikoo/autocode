@@ -21,6 +21,7 @@ Open a pull request for the current branch.
      - Inspect changes: `git diff <base>...HEAD` and `git log <base>..HEAD --oneline`. Read source files when needed for accurate section text.
      - Fill every section of the template. Empty sections get a placeholder (`(none)` or `_n/a_`); never drop a section.
      - Strip HTML comments (template instructions, not content). Copy checklist items character-for-character; only flip `[ ]` to `[x]` when satisfied.
+     - When a ticket id is parseable from the branch (per `branch-naming`), add a `Closes #<ticket-id>` line so the merge auto-closes the linked issue. This is what advances a unit sub-issue to `done`.
      - Write to `body="$(mktemp -d -t autocode-pr)/body.md"`.
    - `--lightweight`:
      - Skip template. Body is a one-paragraph summary derived from commit subjects via `git log <base>..HEAD --pretty='- %s'`.

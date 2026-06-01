@@ -47,9 +47,18 @@ Tracker-side issue operations: view, create, identity, and future label / commen
 |---|---|---|
 | `issue-view.sh` | `<key>` | `Issue` JSON |
 | `issue-create.sh` | `<flags>` | created key on a single line |
+| `issue-list.sh` | `--label <label> [--state all\|open\|closed]` | `Issue[]` JSON |
+| `issue-transition.sh` | `<key> <status>` | none |
+| `issue-label-ensure.sh` | `<name> [--color <hex>] [--description <text>]` | none |
 | `current-user.sh` | (none) | `User` JSON |
 
-`issue-create.sh` flag set is provider-defined but must accept at minimum a summary, an issue type, and an optional body file. Providers document their own flag surface inside the script.
+`issue-create.sh` flag set is provider-defined but must accept at minimum a summary (`-s`), an issue type (`-t`), an optional body file (`-b`), zero or more labels (`-l`, repeatable), and an optional parent for sub-issue linking (`-P`). Providers document their own flag surface inside the script.
+
+`issue-list.sh` powers design-epic discovery: list every issue carrying the epic tag in one live call (no search index), then match body markers client-side to resolve units and read their state. It emits the `Issue` shape per row, except `parent` is always `""` (bulk listing does not resolve per-row parents). Default `--state` is `all` so closed (done) issues are included.
+
+`issue-transition.sh` accepts only the four-state enum values (`todo`, `in-progress`, `in-review`, `done`); the provider maps them to native state (GitHub: `autocode:<state>` label for open states, `closed` for done). Idempotent.
+
+`issue-label-ensure.sh` creates or updates a label. Required before creating an issue with a dynamic label (e.g. an epic tag `autocode-epic:<id>`), since GitHub rejects `issue create --label X` when X does not exist. Idempotent.
 
 ## Optional scripts
 
@@ -63,9 +72,8 @@ Documented for future implementers. Not yet implemented. A skill that calls an o
 | `issue-comment-list.sh` | `<key>` | `Comment[]` JSON | reading tracker-side discussion |
 | `issue-label-list.sh` | `<key>` | `string[]` JSON | inspecting current labels |
 | `issue-label-add.sh` | `<key> <label>...` | none | applying labels (idempotent) |
-| `issue-transition.sh` | `<key> <status>` | none | `autocode:*` label moves on GitHub, Jira status transitions |
 
-`issue-transition.sh` accepts only the four-state enum values (`todo`, `in-progress`, `in-review`, `done`); the provider maps them to native state. `issue-label-add.sh` is idempotent: re-adding an existing label exits `0` with no error.
+`issue-label-add.sh` is idempotent: re-adding an existing label exits `0` with no error.
 
 The `Comment` shape for `issue-comment-list.sh` is provider-defined for now; pin it when the first caller lands.
 

@@ -212,3 +212,4 @@ __marimo__/
 # autocode runtime state (only meaningful when this repo is checked out at ~/.autocode/)
 .last-fetch
 .update-available
+.DS_Store

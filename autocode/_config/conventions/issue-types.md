@@ -17,7 +17,7 @@ Capture what issue categories this repo uses, what each means, and which commit 
 
 ## Default
 
-Five types: `epic`, `story`, `task`, `bug`, `proposal`. Each maps to one provider concept (label, issue-type, or whatever the tracker offers). The `proposal` type is registered by the `design-plan` flow for design proposals tracked as their own tickets; its `commit_type` is `docs` so design docs commit as `docs:` rather than `feat:`.
+Four types: `epic`, `story`, `task`, `bug`. Each maps to one provider concept (label, issue-type, or whatever the tracker offers). Design fan-out creates an `epic` for a multi-unit design; the units (sub-issues) take `story`, `task`, or `bug` from each unit file's `type:` frontmatter. Design folders themselves are pushed as `docs:`-typed branches and are not tracked by an issue.
 
 ## Output format
 
@@ -34,5 +34,5 @@ Five types: `epic`, `story`, `task`, `bug`, `proposal`. Each maps to one provide
 
 ## Selection rules
 
-<when to use which type; e.g. epic vs story boundaries, when to file a proposal>
+<when to use which type; e.g. epic vs story boundaries, story vs task>
 ```
