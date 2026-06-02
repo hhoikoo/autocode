@@ -9,7 +9,7 @@ Diagnose failing CI checks and apply minimal fixes.
 ## Workflow
 
 1. Resolve PR (arg or `provider/run.sh git-remote pr-view --json number`).
-2. List checks: `provider/run.sh ci pr-check-list <pr>`. If all green, report and stop.
+2. List checks: `provider/run.sh ci pr-check-list <pr>`. Green when every check's `bucket` is `pass` or `skipping`; if so, report and stop. A `pending` bucket means CI is still running, not failing.
 3. For each failing check:
    - Fetch the failure log: `provider/run.sh ci run-view-failed <run-id>`. The script already caps to the last 200 lines of the failing step.
    - Diagnose: classify as lint / build / test / workflow. Read the source or config files referenced in the failure.

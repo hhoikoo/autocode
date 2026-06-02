@@ -35,12 +35,14 @@ Workflow-run inspection: list PR-level checks, list recent runs for a branch, an
 ```json
 {
   "name": "<string>",
-  "status": "<string>",
-  "conclusion": "<string|empty>",
+  "bucket": "pass|fail|pending|skipping|cancel",
+  "state": "<string>",
   "link": "<string>",
   "workflow": "<string>"
 }
 ```
+
+`bucket` is the normalized outcome callers branch on (a PR is green when every check is `pass` or `skipping`). `state` is the raw provider state (e.g. `SUCCESS`, `FAILURE`, `IN_PROGRESS`). A provider that lacks a native rollup must derive `bucket` itself.
 
 ## Required scripts
 
@@ -52,7 +54,7 @@ Workflow-run inspection: list PR-level checks, list recent runs for a branch, an
 
 ### Notes
 
-- `pr-check-list.sh` returns `[]` when no checks have run.
+- `pr-check-list.sh` returns `[]` when no checks have run, and still returns the `Check[]` array (exit `0`) when checks are failing or pending.
 - `run-list.sh` default limit is `10`. Most-recent first.
 - `run-view-failed.sh` returns plain text, not JSON. The cap is 200 lines from the tail of the failed step's log.
 - The `provider.ci` setting falls back to `provider.git-remote` when unset; `provider/run.sh` performs the fallback so callers always invoke `provider/run.sh ci <feature>`.

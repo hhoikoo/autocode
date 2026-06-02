@@ -61,9 +61,11 @@ if [[ -n "${assignee}" ]]; then
   args+=(--assignee "${assignee}")
 fi
 if [[ "${no_review}" -eq 1 ]]; then
-  # `gh pr create` does not auto-request reviewers unless asked, but some
-  # repos rely on CODEOWNERS. Pass an empty --reviewer list explicitly.
-  args+=(--reviewer "")
+  # gh requests reviewers only when --reviewer is passed, so omitting it is how
+  # a PR opens without requesting reviews. Passing --reviewer "" instead sends
+  # an empty handle that gh rejects. Server-side CODEOWNERS auto-request, when
+  # the repo enables it, is not controllable from gh.
+  :
 fi
 
 gh "${args[@]}"
