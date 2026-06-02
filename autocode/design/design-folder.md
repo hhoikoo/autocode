@@ -30,7 +30,7 @@ Append-only table, one row per epic ever created, oldest first:
 - `design-plan` allocates the next id (highest existing + 1, zero-padded to 4 digits; `0001` when the table is empty), creates the folder, then appends a row with `status: active`. It creates `INDEX.md` on first use. `--temp` designs are throwaway and never touch it.
 - `impl-archive` flips that epic's row to `status: archived` when it moves the folder. A row and its id are never removed or reused.
 
-Uniqueness under concurrency: two branches that allocate the same id both append a row at the table tail, so the merge conflicts and forces a human to renumber one. The folders carry different shortnames and would merge cleanly, so `INDEX.md` is the tripwire.
+Uniqueness under concurrency: two branches that allocate the same id both append a row at the table tail, so the merge conflicts. The folders carry different shortnames and would merge cleanly, so `INDEX.md` is the tripwire. Resolution is to renumber the losing branch to the next free id (rename its folder, fix its `INDEX.md` row); `pr-rebase` does this automatically when the only conflict is in `INDEX.md`.
 
 ## Contents
 
@@ -54,11 +54,18 @@ All four are committed. Only the transient state files `.autocode/.impl-context`
 
 ## DESIGN.md
 
-The epic plan. Sections:
+The epic plan. Sections (conditional ones are included when they carry weight; omit rather than pad a trivial design):
 
 - `## Summary`: one paragraph. Verbatim source for the epic issue body at fan-out, so it must stand alone.
-- `## Architecture impact`, `## Edge cases and error handling`, `## Testing strategy`, `## Sources`: as in the `design-plan` flow.
-- `## Units`: the DAG overview. One row per unit: slug, one-line deliverable, `depends-on`. This is the human-readable index; the authoritative dependency data lives in each unit file's frontmatter.
+- `## Background` (conditional): brief current-state context. A table (component / file / current behavior) when several pieces interact; a sentence or two otherwise. It frames the change; it does not re-document the codebase.
+- `## Architecture`: the proposed design. Packages, interfaces, new deps (or "no architecture impact" explicitly). Include an ASCII diagram when components interact or data crosses a boundary; omit the diagram for a single-file change.
+- `## Design decisions`: numbered. Each names the choice, the rationale, and the rejected alternative. One entry per non-obvious decision; obvious choices need none.
+- `## Runtime flow` (conditional): numbered end-to-end walk of the behavior at runtime. Include for behavior changes; omit for pure refactors or static config.
+- `## Edge cases and error handling`.
+- `## Testing strategy`: categories, fakes, minimum coverage.
+- `## Alternatives considered` (conditional): rejected whole-design approaches and why. Omit if there were none.
+- `## Sources`: every claim cited. Unsubstantiated claims are discarded.
+- `## Units`: the DAG overview. One row per unit: slug rendered as a relative link to its file (`[<slug>](units/<slug>.md)`), one-line deliverable, `depends-on`. This is the human-readable index; the authoritative dependency data lives in each unit file's frontmatter. Use relative links here, not absolute `blob` URLs: a relative link resolves at whatever ref the doc is viewed (branch, merge commit, after a rename), whereas `blob` URLs are for the design PR body, where relative links do not resolve.
 
 ## units/<slug>.md
 

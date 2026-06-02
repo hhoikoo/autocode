@@ -5,7 +5,7 @@ Open a pull request for the current branch.
 ## Args
 
 ```
-[--no-review] [--lightweight]
+[--no-review] [--lightweight] [--body-file <path>]
 ```
 
 ## Workflow
@@ -16,6 +16,7 @@ Open a pull request for the current branch.
    - Else: `git push`.
 3. Generate title from branch + last commit subject. Shape: `<type>(<ticket>): <subject>` or `<type>: <subject>`. Derive `<type>` and `<ticket>` from branch prefix per `$AUTOCODE_CONFIG_DIR/conventions/branch-naming.md` (branch is `<type>/<ticket>/<short>` or `<type>/<short>`). `<subject>` comes from `git log -1 --pretty=%s`.
 4. Generate body:
+   - `--body-file <path>` given: use that file verbatim as `body`. Skip all generation below (template and lightweight); the caller owns the content.
    - Default (no `--lightweight`):
      - Read `.github/PULL_REQUEST_TEMPLATE.md` and `$AUTOCODE_CONFIG_DIR/conventions/pr-template.md`.
      - Inspect changes: `git diff <base>...HEAD` and `git log <base>..HEAD --oneline`. Read source files when needed for accurate section text.
@@ -52,6 +53,7 @@ Open a pull request for the current branch.
 - Conventional-commit title shape required.
 - Body fills every template section. Empty sections get a placeholder (`(none)` or `_n/a_`).
 - `--lightweight` skips template, sleep+link, reviewer request, and hygiene dispatch. Explicit `--no-review` wins over implicit reviewer request.
+- `--body-file <path>` supplies the body verbatim, overriding both default and lightweight body generation. Compose with `--lightweight` to also skip link/reviewers/hygiene.
 - Never force-push or rewrite history.
 
 $ARGUMENTS
