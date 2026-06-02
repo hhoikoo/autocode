@@ -19,7 +19,7 @@ Layout: `@~/.autocode/autocode/design/design-folder.md`.
 ## Workflow
 
 1. Locate `.autocode/design/<id>-<shortname>/`. Confirm `DESIGN.md` exists. Stop on no match.
-2. Ensure a worktree + docs branch. If the current branch is the default branch, use `EnterWorktree` based on the default branch, then delegate to `git-create-branch "docs: design <shortname>"` inside it.
+2. Ensure a worktree + docs branch per `@~/.autocode/autocode/_config/guides/worktree.md`, then delegate to `git-create-branch "docs: design <shortname>"` (skipped if `design-plan` already created the worktree this session). Run this in the same session as `design-plan`: the design folder is uncommitted in that worktree, so on the default branch in a fresh session the glob below will not find it.
 3. Stage the design folder: `git add .autocode/design/<id>-<shortname>/`.
 4. Delegate to `git-commit` (forward a context note describing the design).
 5. Delegate to `pr-create --lightweight`. The lightweight flag:
