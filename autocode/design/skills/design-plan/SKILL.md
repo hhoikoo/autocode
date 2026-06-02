@@ -22,6 +22,7 @@ Layout authority: `@~/.autocode/autocode/design/design-folder.md`. Read it; this
 4. Compose the epic plan and decompose it into units once research returns.
    - Decide multi-unit vs flat. If the work is one PR's worth, produce a flat single-unit design: `DESIGN.md` only, no `units/` (see "Flat designs" below). Otherwise decompose into independent units of work, each one PR's worth with a single clear deliverable; identify dependencies between units and confirm the graph is acyclic. A unit that depends on nothing is immediately workable.
    - `DESIGN.md` sections (multi-unit): `design-folder.md` is the authority for the section set and when each conditional one applies. Do not restate or reorder it here. Writing guidance for the sections that carry the explanation:
+     - `# <Title>`: the opening H1. A natural-language epic title in sentence case (not the kebab-case `<shortname>`); the epic issue's title at fan-out.
      - `## Summary`: one paragraph; the verbatim epic issue body at fan-out, so it must stand alone.
      - `## Background`: brief. A current-state table when several pieces interact, a sentence or two otherwise.
      - `## Architecture`: draw an ASCII diagram whenever components interact or data crosses a boundary. A wall of prose where a diagram fits is the most common failure of this skill.
@@ -50,7 +51,7 @@ No issue is created here. The epic issue and per-unit sub-issues are created onl
 ## Rules
 
 - Every unit lists the files it touches; if you cannot list files, the unit is not specific enough.
-- `DESIGN.md` and every unit carry a `## Summary`; these are the verbatim issue bodies at fan-out.
+- `DESIGN.md` and every unit open with a `# <Title>` H1 (natural language, sentence case) and carry a `## Summary`; the H1 is the issue title and the `## Summary` the verbatim issue body at fan-out.
 - `depends-on` forms an acyclic DAG. Each unit must be independently mergeable once its dependencies are merged.
 - Prefer "I don't know" over a guess. Send the gap to a researcher or the user; do not paper over it.
 - Sources section is mandatory. Each claim has a citation (codebase path, URL, or user statement).

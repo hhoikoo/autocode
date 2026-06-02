@@ -14,7 +14,7 @@ One of:
 ## Workflow (from-design)
 
 1. Locate `.autocode/design/<id>-<short>/` (glob on either half). Read `DESIGN.md` and any `units/*.md`. Multi-unit if `units/` exists; flat otherwise.
-2. Discover issues: `provider/run.sh issue-tracker issue-list --label "autocode-epic:<id>" --state all`. If it returns `[]`, the design has not been fanned out; tell the user to run `/design-fanout <id>` (or wait for the Action) and stop.
+2. Discover issues: `provider/run.sh issue-tracker issue-epic-list --epic <id>`. If it returns `[]`, the design has not been fanned out; tell the user to run `/design-fanout <id>` (or wait for the Action) and stop.
 3. Map markers to issues. For each returned issue, read its `description` for a marker:
    - `<!-- autocode:epic=<id> -->` -> the epic issue (also the single unit in a flat design).
    - `<!-- autocode:unit=<id>/<slug> -->` -> that unit's sub-issue.

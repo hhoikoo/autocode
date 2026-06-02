@@ -47,18 +47,15 @@ Tracker-side issue operations: view, create, identity, and future label / commen
 |---|---|---|
 | `issue-view.sh` | `<key>` | `Issue` JSON |
 | `issue-create.sh` | `<flags>` | created key on a single line |
-| `issue-list.sh` | `--label <label> [--state all\|open\|closed]` | `Issue[]` JSON |
+| `issue-epic-list.sh` | `--epic <id> [-g <owner/repo>]` | `Issue[]` JSON |
 | `issue-transition.sh` | `<key> <status>` | none |
-| `issue-label-ensure.sh` | `<name> [--color <hex>] [--description <text>]` | none |
 | `current-user.sh` | (none) | `User` JSON |
 
-`issue-create.sh` flag set is provider-defined but must accept at minimum a summary (`-s`), an issue type (`-t`), an optional body file (`-b`), zero or more labels (`-l`, repeatable), and an optional parent for sub-issue linking (`-P`). Providers document their own flag surface inside the script.
+`issue-create.sh` flag set is provider-defined but must accept at minimum a summary (`-s`), an issue type (`-t`), an optional body file (`-b`), zero or more labels (`-l`, repeatable), and an optional parent for sub-issue linking (`-P`). Providers document their own flag surface inside the script. The issue `type` (`-t`) is materialized onto the tracker's native typing facility when one exists (GitHub native Issue Type, Jira issue type); a provider with no native typing falls back to a `type:<x>` label.
 
-`issue-list.sh` powers design-epic discovery: list every issue carrying the epic tag in one live call (no search index), then match body markers client-side to resolve units and read their state. It emits the `Issue` shape per row, except `parent` is always `""` (bulk listing does not resolve per-row parents). Default `--state` is `all` so closed (done) issues are included.
+`issue-epic-list.sh` powers design-epic discovery: given an autocode epic `<id>`, return that epic's issue plus every unit sub-issue (`Issue[]`), in one live call (no search index). The caller matches body markers client-side (`autocode:epic=<id>`, `autocode:unit=<id>/<slug>`) to assign roles and read each unit's state. Each provider resolves the set natively: GitHub finds the epic by its body marker and reads units from the sub-issue relationship (no per-epic label); a provider without a native parent/child relationship may instead carry an `autocode-epic:<id>` label on every issue of the epic and list by it. Unit rows carry `parent` = the epic key; the epic row carries `parent: ""`. Default state is `all`, so a closed (done) epic or unit is included.
 
 `issue-transition.sh` accepts only the four-state enum values (`todo`, `in-progress`, `in-review`, `done`); the provider maps them to native state (GitHub: `autocode:<state>` label for open states, `closed` for done). Idempotent.
-
-`issue-label-ensure.sh` creates or updates a label. Required before creating an issue with a dynamic label (e.g. an epic tag `autocode-epic:<id>`), since GitHub rejects `issue create --label X` when X does not exist. Idempotent.
 
 ## Optional scripts
 

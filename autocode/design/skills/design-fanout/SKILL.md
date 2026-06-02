@@ -17,17 +17,18 @@ Layout, markers, and labels: `@~/.autocode/autocode/design/design-folder.md`. Th
 ## Workflow
 
 1. Build the permalink base. `sha=$(git log -1 --format=%H -- <folder>)` (the commit that last touched the folder, i.e. the merge). `repo_url=$(gh repo view --json url --jq .url)`. A file's link is `<repo_url>/blob/<sha>/<repo-relative-path>`. (Permalink shape is GitHub-specific; acceptable while `git-remote` is GitHub.)
-2. Ensure the epic tag exists: `provider/run.sh issue-tracker issue-label-ensure "autocode-epic:<id>" --description "autocode design epic <id>"`.
-3. Idempotency check. `provider/run.sh issue-tracker issue-list --label "autocode-epic:<id>" --state all`. Parse the returned `description` of each issue for existing markers (`autocode:epic=<id>`, `autocode:unit=<id>/<slug>`). Skip creating anything whose marker is already present; report it as existing.
-4. Create issues. For each issue, build a body temp file: the source file's `## Summary` paragraph, then a blank line, then `Design: <permalink>`, then a blank line, then the HTML-comment marker. Write it with the Write tool, then call the provider.
+2. Idempotency check. `provider/run.sh issue-tracker issue-epic-list --epic <id>` returns the epic plus any units already created (`[]` if the design has not been fanned out). Parse each row's `description` for markers (`autocode:epic=<id>`, `autocode:unit=<id>/<slug>`). Skip creating anything whose marker is already present; report it as existing.
+3. Create issues. For each issue, build a body temp file: the source file's `## Summary` paragraph, then a blank line, then `Design: <permalink>`, then a blank line, then the HTML-comment marker. Write it with the Write tool, then call the provider.
+
+   The issue title (`-s`) is the source file's `# <Title>` H1: `DESIGN.md`'s for the epic/flat issue (fall back to `<shortname>`), the unit file's for each unit (fall back to `<slug>`).
 
    Multi-unit:
-   - Epic (if its marker is absent): body from `DESIGN.md` `## Summary` + `DESIGN.md` permalink + `<!-- autocode:epic=<id> -->`. `provider/run.sh issue-tracker issue-create -t epic -s "<shortname>" -b "<body>" -l "autocode-epic:<id>"`. Capture the epic number.
-   - Each unit `units/<slug>.md` (if its marker is absent): body from the unit's `## Summary` + the unit file permalink + `<!-- autocode:unit=<id>/<slug> -->`. `provider/run.sh issue-tracker issue-create -t <unit.type> -s "<slug>" -b "<body>" -l "autocode-epic:<id>" -P <epic-number>`.
+   - Epic (if its marker is absent): body from `DESIGN.md` `## Summary` + `DESIGN.md` permalink + `<!-- autocode:epic=<id> -->`. `provider/run.sh issue-tracker issue-create -t epic -s "<DESIGN.md H1>" -b "<body>"`. Capture the epic number.
+   - Each unit `units/<slug>.md` (if its marker is absent): body from the unit's `## Summary` + the unit file permalink + `<!-- autocode:unit=<id>/<slug> -->`. `provider/run.sh issue-tracker issue-create -t <unit.type> -s "<unit H1>" -b "<body>" -P <epic-number>`. The `-P` link makes it a native sub-issue of the epic; no per-epic label is applied.
 
    Flat (no `units/`):
-   - One issue (if `autocode:epic=<id>` marker absent): body from `DESIGN.md` `## Summary` + permalink + `<!-- autocode:epic=<id> -->`. `provider/run.sh issue-tracker issue-create -t <DESIGN.type> -s "<shortname>" -b "<body>" -l "autocode-epic:<id>"`. No parent. This issue is both epic and unit.
-5. Report a table: each issue's role (epic / unit slug), number, and created-or-existing.
+   - One issue (if `autocode:epic=<id>` marker absent): body from `DESIGN.md` `## Summary` + permalink + `<!-- autocode:epic=<id> -->`. `provider/run.sh issue-tracker issue-create -t <DESIGN.type> -s "<DESIGN.md H1>" -b "<body>"`. No parent. This issue is both epic and unit.
+4. Report a table: each issue's role (epic / unit slug), number, and created-or-existing.
 
 ## Rules
 

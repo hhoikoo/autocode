@@ -46,7 +46,7 @@ Immutable vs living: `DESIGN.md` and `units/*.md` are the spec; once the design 
 
 ### Single-unit (flat) designs
 
-When the work is one PR's worth, the epic and the unit are the same thing. The design is flat: no `units/` directory. `DESIGN.md` carries the unit frontmatter (`type:`) and an `## Implementation` section, and is its own unit (slug = `<shortname>`). Fan-out then creates exactly one issue (no epic/sub-issue split), still tagged `autocode-epic:<id>` so discovery is identical. `progress/<shortname>.md` is the only per-unit log.
+When the work is one PR's worth, the epic and the unit are the same thing. The design is flat: no `units/` directory. `DESIGN.md` carries the unit frontmatter (`type:`) and an `## Implementation` section, and is its own unit (slug = `<shortname>`). Fan-out then creates exactly one issue (no epic/sub-issue split), carrying the `autocode:epic=<id>` marker so discovery is identical. `progress/<shortname>.md` is the only per-unit log.
 
 The rule everything keys on: `units/` present -> multi-unit epic; `units/` absent -> flat single issue. Use flat when the plan would otherwise produce a single unit; use multi-unit when the work splits into independently mergeable pieces.
 
@@ -54,7 +54,7 @@ All four are committed. Only the transient state files `.autocode/.impl-context`
 
 ## DESIGN.md
 
-The epic plan. Sections (conditional ones are included when they carry weight; omit rather than pad a trivial design):
+The epic plan. Opens with a single `# <Title>` H1: a natural-language title for the epic in sentence case (e.g. `# Native GitHub issue types`), distinct from the kebab-case `<shortname>`. It is the epic issue's title at fan-out (a flat design's single issue takes it too). The plan sections follow (conditional ones are included when they carry weight; omit rather than pad a trivial design):
 
 - `## Summary`: one paragraph. Verbatim source for the epic issue body at fan-out, so it must stand alone.
 - `## Background` (conditional): brief current-state context. A table (component / file / current behavior) when several pieces interact; a sentence or two otherwise. It frames the change; it does not re-document the codebase.
@@ -78,6 +78,8 @@ type: <issue-type>          # one of the repo's issue types, e.g. task, story, b
 ---
 ```
 
+After the frontmatter, a single `# <Title>` H1: the unit's natural-language title in sentence case, the sub-issue's title at fan-out (distinct from the kebab-case `<slug>`).
+
 Body sections:
 
 - `## Summary`: one paragraph. Verbatim source for the sub-issue body at fan-out.
@@ -89,32 +91,32 @@ A unit is a single PR's worth of work. Dependencies between units in the same fo
 
 On design-PR merge (mechanically by the GH Action, or via the `design-fanout` skill), each design folder becomes:
 
-- One epic issue: title from `<shortname>`, body = `DESIGN.md` `## Summary` + a link to `DESIGN.md` at the merge commit + the epic marker. Issue type `epic`.
-- One sub-issue per unit: title from the unit, body = the unit's `## Summary` + a link to `units/<slug>.md` at the merge commit + the unit marker. Issue type from the unit's `type` frontmatter. Linked as a sub-issue of the epic.
+- One epic issue: title from the `# <Title>` H1 of `DESIGN.md` (falling back to `<shortname>` if absent), body = `DESIGN.md` `## Summary` + a link to `DESIGN.md` at the merge commit + the epic marker. Issue type `epic`.
+- One sub-issue per unit: title from the unit file's `# <Title>` H1 (falling back to `<slug>` if absent), body = the unit's `## Summary` + a link to `units/<slug>.md` at the merge commit + the unit marker. Issue type from the unit's `type` frontmatter. Linked as a sub-issue of the epic.
 
 No issue number is written back into any file. The link is one-directional (issue -> folder) via the body link and the markers below.
 
-### Tags and markers
+### Markers
 
-Every issue of an epic carries:
+Every issue of an epic carries a body marker, in an HTML comment so it survives rendering and is never shown:
 
-- Epic tag `autocode-epic:<id>` (a tracker label or equivalent). Applied to the epic issue and every unit sub-issue. List-filterable in one live call, so discovery never depends on a search index.
-- Body marker, in an HTML comment so it survives rendering and is never shown:
-  - epic: `<!-- autocode:epic=<id> -->`
-  - unit: `<!-- autocode:unit=<id>/<slug> -->`
+- epic: `<!-- autocode:epic=<id> -->`
+- unit: `<!-- autocode:unit=<id>/<slug> -->`
+
+The marker is the durable issue -> folder link and the unit's slug identity; issue numbers are never written back. How an epic's issues are grouped is the provider's concern: GitHub links each unit as a native sub-issue of the epic and applies no per-epic label; a provider with no native parent/child relationship carries an `autocode-epic:<id>` label on every issue of the epic instead. The markers are identical either way, so discovery and slug mapping are provider-independent.
 
 ### Discovery
 
-To find the issue for a given unit, or to read the state of an epic's units, list issues by the epic tag and match markers:
+To find the issue for a given unit, or read the state of an epic's units, ask the provider for the epic's issues and match markers:
 
 ```
-list issues with tag autocode-epic:<id>, state=all   # one live provider call
--> epic = the body with autocode:epic=<id>
--> unit = the body with autocode:unit=<id>/<slug>
--> each unit's done-state = that issue's state (see issue-lifecycle)
+provider issue-epic-list --epic <id>   # one live call; epic + every unit, state=all
+-> epic = the row whose body has autocode:epic=<id>
+-> unit = the row whose body has autocode:unit=<id>/<slug>
+-> each unit's done-state = that row's status (see issue-lifecycle)
 ```
 
-`impl-start` uses this to compute the DAG-ready set (a unit is workable when every slug in its `depends-on` has a closed/done sub-issue) and to find the sub-issue to link a unit PR to.
+The provider resolves the set natively (GitHub: epic found by marker, units from the sub-issue relationship). `impl-start` uses it to compute the DAG-ready set (a unit is workable when every slug in its `depends-on` is a closed/done sub-issue) and to find the sub-issue to link a unit PR to. A flat design returns a single row that is both epic and unit.
 
 ## PROGRESS.md
 

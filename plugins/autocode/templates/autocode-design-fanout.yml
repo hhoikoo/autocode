@@ -2,10 +2,10 @@
 #
 # On merge to the default branch touching .autocode/design/**, mechanically
 # create one epic issue plus one sub-issue per unit (or a single issue for a
-# flat design). No Claude, no AI. The body, tags, and markers match
-# autocode/design/design-folder.md so `impl-start` discovery works the same as
-# the manual `design-fanout` skill. Idempotent: re-runs create only issues whose
-# marker is missing.
+# flat design). No Claude, no AI. The body, markers, and native sub-issue links
+# match autocode/design/design-folder.md so `impl-start` discovery works the same
+# as the manual `design-fanout` skill. Idempotent: re-runs create only issues
+# whose marker is missing.
 #
 # Install: copy to .github/workflows/ in the target repo. Adjust the branch name
 # below if the default branch is not `main`. Requires the default GITHUB_TOKEN
@@ -39,6 +39,9 @@ jobs:
         run: |
           set -euo pipefail
 
+          OWNER="${REPO%%/*}"
+          NAME="${REPO##*/}"
+
           if [[ "${BEFORE}" =~ ^0+$ ]]; then
             range="${SHA}^..${SHA}"
           else
@@ -48,17 +51,75 @@ jobs:
           mapfile -t dirs < <(git diff --name-only "${range}" -- '.autocode/design/' \
             | sed -nE 's#^(\.autocode/design/[^/]+)/.*#\1#p' | sort -u)
 
-          summary() { awk '/^## Summary[[:space:]]*$/{f=1;next} /^## /{f=0} f' "$1"; }
+          # ## Summary paragraph, stripped of leading/trailing blank lines.
+          summary() {
+            awk '
+              /^## Summary[[:space:]]*$/ {f=1; next}
+              /^## / {f=0}
+              f {
+                if ($0 ~ /^[[:space:]]*$/) { if (seen) blanks++; next }
+                for (; blanks>0; blanks--) print ""
+                seen=1; print
+              }
+            ' "$1"
+          }
+
           fm_type() { awk 'NR==1 && $0=="---"{i=1;next} i && $0=="---"{exit} i && /^type:/{sub(/^type:[[:space:]]*/,"");print;exit}' "$1"; }
+
+          # First `# ` H1 (the natural-language title); empty if the file has none.
+          title() { awk '/^# /{sub(/^#[[:space:]]+/,"");print;exit}' "$1"; }
+
           make_body() {  # $1=file $2=marker
             summary "$1"
             printf '\nDesign: https://github.com/%s/blob/%s/%s\n\n%s\n' "${REPO}" "${SHA}" "$1" "$2"
           }
-          rest_id() { gh api "/repos/${REPO}/issues/$1" --jq '.id'; }
-          create_issue() {  # $1=title $2=epic-label $3=type $4=body-file -> prints number
-            gh label create "type:$3" --force >/dev/null 2>&1 || true
-            gh issue create --repo "${REPO}" --title "$1" --label "$2" --label "type:$3" \
-              --body-file "$4" | grep -oE '[0-9]+$'
+
+          # Opaque GraphQL node id (I_kwDO...) for addSubIssue; the REST integer id does not resolve.
+          node_id() {
+            gh api graphql -H "GraphQL-Features:sub_issues" \
+              -f query='query($o:String!,$n:String!,$num:Int!){repository(owner:$o,name:$n){issue(number:$num){id}}}' \
+              -f o="${OWNER}" -f n="${NAME}" -F num="$1" --jq '.data.repository.issue.id'
+          }
+
+          # Native Issue Types defined on the owning org (lowercased name -> native name).
+          # Empty when the owner is a user or the org defines none; callers fall back to a label.
+          org_types=$(gh api "/orgs/${OWNER}/issue-types" 2>/dev/null \
+            | jq -r '.[] | "\(.name | ascii_downcase)\t\(.name)"' || true)
+          native_type() {  # $1=autocode type (any case) -> native name or ""
+            local want
+            want=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
+            printf '%s\n' "${org_types}" | awk -F'\t' -v w="${want}" '$1==w{print $2; exit}'
+          }
+
+          create_issue() {  # $1=title $2=type $3=body-file -> prints number
+            local ntype num tl
+            ntype=$(native_type "$2")
+            local create_args=(issue create --repo "${REPO}" --title "$1" --body-file "$3")
+            if [[ -z "${ntype}" ]]; then
+              tl=$(printf '%s' "$2" | tr '[:upper:]' '[:lower:]')
+              gh label create "type:${tl}" --force >/dev/null 2>&1 || true
+              create_args+=(--label "type:${tl}")
+            fi
+            num=$(gh "${create_args[@]}" | grep -oE '[0-9]+$')
+            if [[ -n "${ntype}" ]]; then
+              gh api -X PATCH "/repos/${REPO}/issues/${num}" -f type="${ntype}" >/dev/null 2>&1 \
+                || echo "warning: created #${num} but could not set native type ${ntype}" >&2
+            fi
+            printf '%s\n' "${num}"
+          }
+
+          # First issue (not a PR) whose body carries the epic marker; empty if none.
+          # HTML-comment markers are not search-indexed, so this is a live scan of repo
+          # issues (state=all so a closed epic is still found). No per-epic label.
+          find_epic() {  # $1=marker -> epic number or ""
+            gh api --paginate "/repos/${REPO}/issues?state=all&per_page=100" \
+              | jq -r --arg m "$1" '[ .[] | select(.pull_request | not) | select(.body != null and (.body | contains($m))) | .number ][0] // empty' \
+              | head -n1
+          }
+
+          # Bodies of an epic's native sub-issues, for unit idempotency on re-run.
+          child_bodies() {  # $1=epic number
+            gh api --paginate "/repos/${REPO}/issues/$1/sub_issues" --jq '.[].body' 2>/dev/null || true
           }
 
           for dir in "${dirs[@]+"${dirs[@]}"}"; do
@@ -66,47 +127,42 @@ jobs:
             base=$(basename "${dir}")
             id="${base%%-*}"
             short="${base#*-}"
-            label="autocode-epic:${id}"
-            gh label create "${label}" --force --description "autocode design epic ${id}" >/dev/null 2>&1 || true
-
-            existing=$(gh issue list --repo "${REPO}" --label "${label}" --state all --limit 200 \
-              --json body --jq '[.[].body] | join("\n")' || echo "")
-            has() { printf '%s' "${existing}" | grep -qF "$1"; }
+            epic_marker="<!-- autocode:epic=${id} -->"
 
             tmp=$(mktemp)
 
             if [[ -d "${dir}/units" ]]; then
-              epic_marker="<!-- autocode:epic=${id} -->"
-              if has "${epic_marker}"; then
-                epic_num=$(gh issue list --repo "${REPO}" --label "${label}" --state all \
-                  --json number,body --jq ".[] | select(.body | contains(\"${epic_marker}\")) | .number" | head -n1)
-              else
+              epic_num=$(find_epic "${epic_marker}")
+              if [[ -z "${epic_num}" ]]; then
+                etitle=$(title "${dir}/DESIGN.md"); etitle="${etitle:-${short}}"
                 make_body "${dir}/DESIGN.md" "${epic_marker}" > "${tmp}"
-                epic_num=$(create_issue "${short}" "${label}" "epic" "${tmp}")
+                epic_num=$(create_issue "${etitle}" "epic" "${tmp}")
               fi
-              epic_id=$(rest_id "${epic_num}")
+              epic_node=$(node_id "${epic_num}")
+              existing_units=$(child_bodies "${epic_num}")
 
               for unit in "${dir}"/units/*.md; do
                 [[ -f "${unit}" ]] || continue
                 slug=$(basename "${unit}" .md)
                 umarker="<!-- autocode:unit=${id}/${slug} -->"
-                has "${umarker}" && continue
+                printf '%s' "${existing_units}" | grep -qF "${umarker}" && continue
                 utype=$(fm_type "${unit}"); utype="${utype:-task}"
+                utitle=$(title "${unit}"); utitle="${utitle:-${slug}}"
                 make_body "${unit}" "${umarker}" > "${tmp}"
-                child_num=$(create_issue "${slug}" "${label}" "${utype}" "${tmp}")
-                child_id=$(rest_id "${child_num}")
+                child_num=$(create_issue "${utitle}" "${utype}" "${tmp}")
+                child_node=$(node_id "${child_num}")
                 gh api graphql -H "GraphQL-Features:sub_issues" \
                   -f query='mutation($p:ID!,$c:ID!){addSubIssue(input:{issueId:$p,subIssueId:$c}){subIssue{number}}}' \
-                  -f p="${epic_id}" -f c="${child_id}" >/dev/null 2>&1 \
+                  -f p="${epic_node}" -f c="${child_node}" >/dev/null 2>&1 \
                   || echo "warning: could not link #${child_num} to epic #${epic_num}" >&2
                 sleep 1
               done
             else
-              emarker="<!-- autocode:epic=${id} -->"
-              if ! has "${emarker}"; then
+              if [[ -z "$(find_epic "${epic_marker}")" ]]; then
                 ftype=$(fm_type "${dir}/DESIGN.md"); ftype="${ftype:-task}"
-                make_body "${dir}/DESIGN.md" "${emarker}" > "${tmp}"
-                create_issue "${short}" "${label}" "${ftype}" "${tmp}" >/dev/null
+                ftitle=$(title "${dir}/DESIGN.md"); ftitle="${ftitle:-${short}}"
+                make_body "${dir}/DESIGN.md" "${epic_marker}" > "${tmp}"
+                create_issue "${ftitle}" "${ftype}" "${tmp}" >/dev/null
               fi
             fi
 
