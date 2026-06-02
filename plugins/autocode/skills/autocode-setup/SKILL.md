@@ -105,15 +105,16 @@ Rules:
 
 Use Read + Edit (or Write for the create-from-scratch case). Do not call out to a script.
 
-## Step 6: Optional design fan-out Action
+## Step 6: Optional design doc issue autocreate Action
 
-Ask the user (via `AskUserQuestion`, default no) whether to install the mechanical design fan-out GitHub Action. Frame: "For repos that fully adopt autocode. On merge to the default branch, it turns a merged design folder into an epic issue plus per-unit sub-issues, with no Claude involved. Without it, run the `/design-fanout` skill manually after a design PR merges." If the user declines, skip.
+Ask the user (via `AskUserQuestion`, default no) whether to install the mechanical design-doc issue autocreate GitHub Action. Frame: "For repos that fully adopt autocode. When a PR that adds a new design folder merges, it creates an epic issue plus per-unit sub-issues (a single issue for a flat design), with no Claude involved. Without it, run the `/design-fanout` skill manually after a design PR merges." If the user declines, skip.
 
-If the user agrees:
+If the user agrees, copy both pieces from `~/.autocode/plugins/autocode/templates/autocreate-design-doc-issue/` into the repo, preserving their relative paths (`mkdir -p` each destination; keep the `.sh` files executable):
 
-- Copy `~/.autocode/plugins/autocode/templates/autocode-design-fanout.yml` to `<repo-root>/.github/workflows/autocode-design-fanout.yml` (`mkdir -p` the workflows dir).
-- If the repo's default branch is not `main`, edit the `branches:` line in the copied file to match.
-- If the destination already exists, show a diff and ask before overwriting.
+- the workflow `.github/workflows/autocreate-design-doc-issue.yml` -> `<repo-root>/.github/workflows/`;
+- the composite action dir `.github/actions/design-fanout/` (`action.yml`, `render-design-issues.sh`, `create-design-issue.sh`) -> `<repo-root>/.github/actions/design-fanout/`.
+
+The Action triggers on any merged PR and gates itself on a newly-added `DESIGN.md`, so there is no branch name to adjust. If a destination file already exists, show a diff and ask before overwriting.
 
 ## Done
 

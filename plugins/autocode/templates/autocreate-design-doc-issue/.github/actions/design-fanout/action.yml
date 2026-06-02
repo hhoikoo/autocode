@@ -1,0 +1,93 @@
+name: 'Design fanout'
+description: 'Fan one merged design folder out into an epic issue plus a native sub-issue per unit (or a single issue for a flat design). Idempotent via body markers.'
+
+inputs:
+  design-dir:
+    description: 'Path to the design folder (.autocode/design/<id>-<short>).'
+    required: true
+  repo:
+    description: 'owner/name of the repository.'
+    required: true
+  sha:
+    description: 'Commit SHA for the Design: permalink (the merge commit).'
+    required: true
+  github-token:
+    description: 'Token for gh issue/label/GraphQL calls. Pass the workflow github.token.'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Resolve org issue types
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        REPO: ${{ inputs.repo }}
+      run: |
+        set -euo pipefail
+        owner="${REPO%%/*}"
+        gh api "/orgs/${owner}/issue-types" 2>/dev/null \
+          | jq -r '.[] | "\(.name | ascii_downcase)\t\(.name)"' > "${RUNNER_TEMP}/org-types.tsv" || true
+        touch "${RUNNER_TEMP}/org-types.tsv"
+
+    - name: Render issue bodies
+      id: render
+      shell: bash
+      env:
+        REPO: ${{ inputs.repo }}
+        SHA: ${{ inputs.sha }}
+        DIR: ${{ inputs.design-dir }}
+      run: |
+        set -euo pipefail
+        kind=$("${{ github.action_path }}/render-design-issues.sh" "${DIR}" "${REPO}" "${SHA}" "${RUNNER_TEMP}/issues")
+        echo "kind=${kind}" >> "$GITHUB_OUTPUT"
+        echo "rendered ${kind} design ${DIR}:"
+        cat "${RUNNER_TEMP}/issues/manifest.tsv"
+
+    - name: Create or find epic issue
+      id: epic
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        REPO: ${{ inputs.repo }}
+      run: |
+        set -euo pipefail
+        manifest="${RUNNER_TEMP}/issues/manifest.tsv"
+        IFS=$'\t' read -r _role _slug title type marker body \
+          < <(awk -F'\t' '$1=="epic" || $1=="flat"{print; exit}' "${manifest}")
+        num=$(gh api --paginate "/repos/${REPO}/issues?state=all&per_page=100" \
+          | jq -r --arg m "${marker}" \
+              '[ .[] | select(.pull_request | not) | select(.body != null and (.body | contains($m))) | .number ][0] // empty')
+        if [[ -n "${num}" ]]; then
+          echo "epic already exists: #${num}"
+        else
+          num=$("${{ github.action_path }}/create-design-issue.sh" "${REPO}" "${title}" "${type}" "${body}" "${RUNNER_TEMP}/org-types.tsv")
+          echo "created epic #${num}"
+        fi
+        node=$(gh api graphql -H "GraphQL-Features:sub_issues" \
+          -f query='query($o:String!,$n:String!,$num:Int!){repository(owner:$o,name:$n){issue(number:$num){id}}}' \
+          -f o="${REPO%%/*}" -f n="${REPO##*/}" -F num="${num}" --jq '.data.repository.issue.id')
+        echo "number=${num}" >> "$GITHUB_OUTPUT"
+        echo "node=${node}" >> "$GITHUB_OUTPUT"
+
+    - name: Create and link unit sub-issues
+      if: steps.render.outputs.kind == 'multi'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        REPO: ${{ inputs.repo }}
+        EPIC_NUM: ${{ steps.epic.outputs.number }}
+        EPIC_NODE: ${{ steps.epic.outputs.node }}
+      run: |
+        set -euo pipefail
+        manifest="${RUNNER_TEMP}/issues/manifest.tsv"
+        linked=$(gh api --paginate "/repos/${REPO}/issues/${EPIC_NUM}/sub_issues" --jq '.[].body' 2>/dev/null || true)
+        while IFS=$'\t' read -r _role slug title type marker body; do
+          if printf '%s' "${linked}" | grep -qF "${marker}"; then
+            echo "unit ${slug} already linked; skip"
+            continue
+          fi
+          num=$("${{ github.action_path }}/create-design-issue.sh" "${REPO}" "${title}" "${type}" "${body}" "${RUNNER_TEMP}/org-types.tsv" "${EPIC_NODE}")
+          echo "created and linked unit ${slug} as #${num}"
+          sleep 1
+        done < <(awk -F'\t' '$1=="unit"' "${manifest}")
