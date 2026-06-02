@@ -23,6 +23,7 @@ The prompt carries:
 2. Inspect the codebase for the exact files this unit creates or modifies and the current shapes it must fit (signatures, struct types, existing patterns). Read/Grep/Glob only; cite `file:line`.
 3. Write `<folder>/units/<slug>.md`:
    - Frontmatter: `depends-on: [<slug>, ...]` (verbatim from the assignment; `[]` if none) and `type: <issue-type>`.
+   - `# <Title>`: after the frontmatter, a single H1. The unit's natural-language title in sentence case (not the kebab-case `<slug>`); the sub-issue's title at fan-out.
    - `## Summary`: one paragraph. Verbatim source for the sub-issue body at fan-out, so it must stand alone.
    - `## Implementation`: deliverable, files to create/modify, public interfaces (signatures, struct types), tests that prove it. High-level. No inline code, no pseudo-code; the implementer owns logic. A small ASCII diagram is welcome when it clarifies a boundary.
 4. Confirm the file names concrete files. If you cannot name them, the unit is underspecified: say so in the output rather than inventing paths.

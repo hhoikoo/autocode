@@ -11,7 +11,7 @@ Layout, discovery, and lifecycle: `@~/.autocode/autocode/design/design-folder.md
 ## Workflow
 
 1. Locate `.autocode/design/<id>-<short>/` (glob on either half). Derive `<id>`, `<short>`. Multi-unit if `units/` exists; flat otherwise.
-2. Discover issues: `provider/run.sh issue-tracker issue-list --label "autocode-epic:<id>" --state all`. Map markers to `{slug, key, status}` and the epic issue.
+2. Discover issues: `provider/run.sh issue-tracker issue-epic-list --epic <id>`. Map markers to `{slug, key, status}` and the epic issue.
 3. Verify completion:
    - Multi-unit: every unit's status must be `done`. Flat: the single issue must be `done`.
    - If any unit is not `done`, report the outstanding units (slug + status) and stop. Do not archive a partially-done epic.

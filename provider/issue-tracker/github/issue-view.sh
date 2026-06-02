@@ -4,6 +4,9 @@ set -euo pipefail
 # View a GitHub issue and emit the issue-tracker contract JSON.
 # Usage: issue-view.sh <key>
 # Depends on: gh, jq.
+#
+# Reads the issue over REST so the native Issue Type (`.type.name`) is available;
+# `type` reports it when set, else falls back to the `type:<x>` label.
 
 if ! command -v gh >/dev/null 2>&1; then
   echo "issue-view.sh: gh CLI not on PATH; install GitHub CLI and run 'gh auth login'" >&2
@@ -17,11 +20,11 @@ fi
 
 issue_number="$1"
 
-# Resolve parent via the sub-issues GraphQL API. Suppress failure; emit empty.
 repo=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')
 owner="${repo%%/*}"
 name="${repo##*/}"
 
+# Resolve parent via the sub-issues GraphQL API. Suppress failure; emit empty.
 # shellcheck disable=SC2016
 parent_number=$(gh api graphql \
   -H "GraphQL-Features:sub_issues" \
@@ -39,25 +42,27 @@ parent_number=$(gh api graphql \
   -F number="${issue_number}" \
   --jq '.data.repository.issue.parent.number // empty' 2>/dev/null || echo "")
 
-# Map the autocode status labels back to the contract status values; fall back
-# to GitHub open/closed.
-gh issue view "${issue_number}" --json number,title,body,labels,state \
+gh api "/repos/${owner}/${name}/issues/${issue_number}" \
   | jq --arg parent "${parent_number}" '
     {
       key: (.number | tostring),
       summary: .title,
       description: (.body // ""),
       type: (
-        [.labels[].name] |
-        if any(. == "type:epic") then "Epic"
-        elif any(. == "type:story") then "Story"
-        elif any(. == "type:bug") then "Bug"
-        elif any(. == "type:task") then "Task"
-        else "Task"
+        if (.type and .type.name) then .type.name
+        else (
+          [.labels[].name] |
+          if any(. == "type:epic") then "Epic"
+          elif any(. == "type:story") then "Story"
+          elif any(. == "type:bug") then "Bug"
+          elif any(. == "type:task") then "Task"
+          else "Task"
+          end
+        )
         end
       ),
       status: (
-        if .state == "CLOSED" then "done"
+        if .state == "closed" then "done"
         else (
           [.labels[].name] as $names |
           if ($names | any(. == "autocode:in-review")) then "in-review"
