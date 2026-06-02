@@ -73,7 +73,7 @@ PR lifecycle on the git hosting side: create, view, edit body, link to issue, re
 ### Notes
 
 - `pr-view.sh` defaults to the PR for the current branch when `<pr>` is omitted. With `--json`, stdout is JSON containing the requested fields.
-- `pr-create.sh` `--no-review` suppresses auto-requesting reviewers from CODEOWNERS or branch protection.
+- `pr-create.sh` `--no-review` opens the PR without the script requesting any reviewers (no `--reviewer` passed to gh). Server-side CODEOWNERS auto-request, when the repo enables it, is outside gh's control and is not suppressed.
 - `pr-issue-link.sh` is idempotent. It detects existing `close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved #N` references (case-insensitive, word-boundary anchored) and skips when present. When missing, it appends a canonical `Closes #N` line.
 - `pr-review-request.sh` tolerates reviewers already on the PR without error.
 - `pr-comment-list.sh` default `--kind` is `all`. The merged list discriminates via `.kind`.
