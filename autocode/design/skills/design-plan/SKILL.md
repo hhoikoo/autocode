@@ -34,11 +34,10 @@ Layout authority: `@~/.autocode/autocode/design/design-folder.md`. Read it; this
      - `## Implementation`: deliverable, files to create/modify, public interfaces (signatures, struct types), tests that prove it. High-level. No inline code, no pseudo-code. The implementer owns logic.
    - Flat designs (single unit): omit the `## Units` section and the `units/` directory. `DESIGN.md` instead carries frontmatter `type: <issue-type>` and its own `## Implementation` section (same shape as a unit). It is its own unit, slug `<shortname>`.
 5. Write the folder.
-   - `id=$(date -u +%Y%m%dT%H%M%SZ)`.
-   - Ask the user for `<shortname>` via `AskUserQuestion`. Kebab-case, lowercase, 2-4 words.
+   - Ask the user for `<shortname>` via `AskUserQuestion`. Kebab-case, lowercase, 2-4 words. (`<id>` is allocated from `INDEX.md` in the without-temp branch below; temp designs have no id.)
    - Multi-unit: write `DESIGN.md` plus each `units/<slug>.md`. Flat: write `DESIGN.md` only (no `units/`).
-   - With `--temp`: `dir=$(mktemp -d -t autocode-design)`. Write the files under `$dir`. Stop. Final report: print `$dir`. Suggest `/design-plan-critique $dir`.
-   - Without `--temp`: `repo_root=$(git rev-parse --show-toplevel)`. Create `$repo_root/.autocode/design/<id>-<shortname>/` (plus `units/` when multi-unit) and write the files. Final report: folder path and `<id>`. Suggest `/design-plan-critique <id>` or `/design-plan-push <id>`.
+   - With `--temp`: `dir=$(mktemp -d -t autocode-design)`. Write the files under `$dir`. Stop. No worktree (the temp dir is outside the repo). Final report: print `$dir`. Suggest `/design-plan-critique $dir`.
+   - Without `--temp`: the folder is a repo change, so isolate it in a worktree first. Ensure a worktree per `@~/.autocode/autocode/_config/guides/worktree.md`, then delegate `git-create-branch "docs: design <shortname>"` inside it. `repo_root=$(git rev-parse --show-toplevel)` (now the worktree). Allocate `<id>` from the index: read `$repo_root/.autocode/design/INDEX.md` (create it with the header from the design-folder spec if absent); `<id>` = highest id in the table + 1, zero-padded to 4 digits (`0001` if empty). Create `$repo_root/.autocode/design/<id>-<shortname>/` (plus `units/` when multi-unit) and write the files. Append a row to `INDEX.md`: `<id>`, `<shortname>`, today's UTC date (`date -u +%Y-%m-%d`), `active`. Final report: worktree path, branch, folder path, and `<id>`. Note the folder is uncommitted in the worktree; suggest `/design-plan-critique <id>`, or `/design-plan-push <id>` in this same session to commit and open the PR.
 
 No issue is created here. The epic issue and per-unit sub-issues are created only when the design PR merges, by `design-fanout` or the optional GitHub Action.
 

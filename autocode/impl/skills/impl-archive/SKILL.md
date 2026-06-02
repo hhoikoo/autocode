@@ -16,9 +16,10 @@ Layout, discovery, and lifecycle: `@~/.autocode/autocode/design/design-folder.md
    - Multi-unit: every unit's status must be `done`. Flat: the single issue must be `done`.
    - If any unit is not `done`, report the outstanding units (slug + status) and stop. Do not archive a partially-done epic.
 4. Close the epic (multi-unit only): `provider/run.sh issue-tracker issue-transition <epic-key> done`. (Flat designs have no separate epic; the single issue is already closed.)
-5. Move the folder. If on the default branch, use `EnterWorktree` + `git-create-branch "chore: archive design <short>"` first. Then:
+5. Move the folder. Ensure a worktree per `@~/.autocode/autocode/_config/guides/worktree.md` + `git-create-branch "chore: archive design <short>"` first. Then:
    - `mkdir -p .autocode/archive`
    - `git mv .autocode/design/<id>-<short> .autocode/archive/<id>-<short>` (if the source no longer exists, it is already archived; report and stop).
+   - In `.autocode/design/INDEX.md`, flip this epic's row to `status: archived`. The row and its id stay; never removed or reused.
 6. Delegate to `git-commit` (a `chore` commit; note that the epic is complete).
 7. Delegate to `pr-create --lightweight` (the change is a folder move, not code).
 8. Report the PR URL and that merging it archives the folder; note the epic issue is closed.

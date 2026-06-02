@@ -8,7 +8,7 @@ One of:
 - `<path>`: the temp folder returned by `design-plan --temp`.
 - `<id>` (the design folder timestamp prefix).
 - `<feature-shortname>` (the kebab-case suffix of a `.autocode/design/*/` directory).
-- nothing: defaults to the most recent `.autocode/design/*` dir. On ambiguity, ask via `AskUserQuestion`.
+- nothing: defaults to the most recent `.autocode/design/*` dir (skip `INDEX.md`, the id registry, not an epic folder). On ambiguity, ask via `AskUserQuestion`.
 
 ## Discovery
 
