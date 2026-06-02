@@ -8,9 +8,29 @@ Canonical structure for a design epic: one folder holding the epic plan, its ind
 .autocode/design/<id>-<shortname>/
 ```
 
-- `<id>`: UTC timestamp, `date -u +%Y%m%dT%H%M%SZ` (e.g. `20260601T143022Z`). Lexicographically sortable so `ls` orders epics by creation. Generated once at `design-plan` time and used as the folder name immediately (it depends on nothing external).
+- `<id>`: zero-padded 4-digit incrementing integer (e.g. `0007`), allocated from `INDEX.md` at `design-plan` time (next id = highest in `INDEX.md` + 1). Zero-padding keeps `ls` ordered by creation. An opaque token everywhere else: tags, markers, archive path.
 - `<shortname>`: kebab-case, 2-4 words, human label.
 - The folder is never renamed. No issue number is ever encoded in the path; issues do not exist until the design PR merges, and the link runs issue -> folder (see Fan-out).
+
+## INDEX.md
+
+`.autocode/design/INDEX.md` is the durable id registry and human index. It is the source of truth for the next id; scanning `.autocode/design/` is not, because `impl-archive` moves done epics out to `.autocode/archive/`, so their numbers would otherwise be reused. Every skill that resolves an epic from `.autocode/design/` skips `INDEX.md`: it is a file, not an epic folder.
+
+Append-only table, one row per epic ever created, oldest first:
+
+```markdown
+# Design index
+
+| id | shortname | created | status |
+|------|-------------------|------------|----------|
+| 0001 | cache-key-fix | 2026-06-01 | archived |
+| 0007 | design-folder-ids | 2026-06-02 | active |
+```
+
+- `design-plan` allocates the next id (highest existing + 1, zero-padded to 4 digits; `0001` when the table is empty), creates the folder, then appends a row with `status: active`. It creates `INDEX.md` on first use. `--temp` designs are throwaway and never touch it.
+- `impl-archive` flips that epic's row to `status: archived` when it moves the folder. A row and its id are never removed or reused.
+
+Uniqueness under concurrency: two branches that allocate the same id both append a row at the table tail, so the merge conflicts and forces a human to renumber one. The folders carry different shortnames and would merge cleanly, so `INDEX.md` is the tripwire.
 
 ## Contents
 

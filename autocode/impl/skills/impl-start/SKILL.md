@@ -24,7 +24,7 @@ One of:
    - Multi-unit: a unit is ready iff its status is `todo` and every slug in its `depends-on` (from the unit file frontmatter) maps to a unit whose status is `done`. Units already `in-progress`/`in-review`/`done` are excluded.
    - If the ready set is empty, report why (all done, or all remaining are blocked on unfinished deps) and stop.
 5. Present the ready units via `AskUserQuestion` (slug + one-line deliverable). The user picks one. Its sub-issue `key` is the ticket for the rest of the flow.
-6. Use `EnterWorktree` to create a worktree based on the repo's default branch (deps are already merged there). Inside it, delegate to `git-create-branch <key>` for the feature branch.
+6. Ensure a worktree per `@~/.autocode/autocode/_config/guides/worktree.md` (based on the default branch, where deps are already merged). Inside it, delegate to `git-create-branch <key>` for the feature branch.
 7. Transition state:
    - `provider/run.sh issue-tracker issue-transition <key> in-progress`.
    - Multi-unit: if the epic issue status is still `todo`, `provider/run.sh issue-tracker issue-transition <epic-key> in-progress`.
@@ -37,7 +37,7 @@ One of:
 ## Workflow (ticket / description mode)
 
 1. Treat the arg as a ticket id (ticket mode) or `<type>: <description>` (description mode). No design epic, no unit selection, no progress log.
-2. `EnterWorktree` based on the default branch; inside it, delegate to `git-create-branch`.
+2. Ensure a worktree per `@~/.autocode/autocode/_config/guides/worktree.md` (based on the default branch); inside it, delegate to `git-create-branch`.
 3. Report worktree path, branch, ticket id (if any), and next step.
 
 ## Rules
