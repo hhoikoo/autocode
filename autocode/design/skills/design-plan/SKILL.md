@@ -21,18 +21,21 @@ Layout authority: `@~/.autocode/autocode/design/design-folder.md`. Read it; this
    Launch researchers in parallel (single message, multiple Task tool calls). They return verbatim findings; fold them into the plan.
 4. Compose the epic plan and decompose it into units once research returns.
    - Decide multi-unit vs flat. If the work is one PR's worth, produce a flat single-unit design: `DESIGN.md` only, no `units/` (see "Flat designs" below). Otherwise decompose into independent units of work, each one PR's worth with a single clear deliverable; identify dependencies between units and confirm the graph is acyclic. A unit that depends on nothing is immediately workable.
-   - `DESIGN.md` sections (multi-unit):
-     - `## Summary` (one paragraph; this is the verbatim epic issue body at fan-out, so it must stand alone).
-     - `## Architecture impact` (packages, interfaces, new deps; or "no architecture impact" explicitly).
-     - `## Edge cases and error handling`.
-     - `## Testing strategy` (categories, fakes, minimum coverage).
-     - `## Sources`. Every claim cited. Unsubstantiated claims are discarded.
-     - `## Units`. Table: `slug`, one-line deliverable, `depends-on`. The human-readable DAG index.
+   - `DESIGN.md` sections (multi-unit): `design-folder.md` is the authority for the section set and when each conditional one applies. Do not restate or reorder it here. Writing guidance for the sections that carry the explanation:
+     - `## Summary`: one paragraph; the verbatim epic issue body at fan-out, so it must stand alone.
+     - `## Background`: brief. A current-state table when several pieces interact, a sentence or two otherwise.
+     - `## Architecture`: draw an ASCII diagram whenever components interact or data crosses a boundary. A wall of prose where a diagram fits is the most common failure of this skill.
+     - `## Design decisions`: one numbered entry per non-obvious choice. State the decision, why, and the alternative you rejected. Obvious choices need no entry.
+     - `## Runtime flow`: number the steps end to end. Include for behavior changes; skip for static config or pure refactors.
+     - `## Alternatives considered`: rejected whole-design approaches and why; omit if none.
+     - `## Sources`: every claim cited. Unsubstantiated claims are discarded.
+     - `## Units`: table of `slug`, one-line deliverable, `depends-on`. The human-readable DAG index.
+     - Borrow these qualities, do not copy any one example's literal layout: the goal is diagrams and structured rationale, not a fixed template.
    - For each unit, `units/<slug>.md`:
      - Frontmatter: `depends-on: [<slug>...]` (other slugs in this folder; `[]` if none) and `type: <issue-type>` (an issue type from the repo's `issue-types` convention at `$AUTOCODE_CONFIG_DIR/conventions/issue-types.md`, typically `task`, `story`, or `bug`).
      - `## Summary` (one paragraph; verbatim sub-issue body at fan-out).
      - `## Implementation`: deliverable, files to create/modify, public interfaces (signatures, struct types), tests that prove it. High-level. No inline code, no pseudo-code. The implementer owns logic.
-   - Flat designs (single unit): omit the `## Units` section and the `units/` directory. `DESIGN.md` instead carries frontmatter `type: <issue-type>` and its own `## Implementation` section (same shape as a unit). It is its own unit, slug `<shortname>`.
+   - Flat designs (single unit): omit the `## Units` section and the `units/` directory. `DESIGN.md` instead carries frontmatter `type: <issue-type>` and its own `## Implementation` section (same shape as a unit). It is its own unit, slug `<shortname>`. The conditional sections (diagram, design decisions, runtime flow) still apply, but stay lean: a one-PR design rarely needs all of them.
 5. Write the folder.
    - Ask the user for `<shortname>` via `AskUserQuestion`. Kebab-case, lowercase, 2-4 words. (`<id>` is allocated from `INDEX.md` in the without-temp branch below; temp designs have no id.)
    - Multi-unit: write `DESIGN.md` plus each `units/<slug>.md`. Flat: write `DESIGN.md` only (no `units/`).

@@ -9,7 +9,7 @@ Triage and apply review comments on a design-doc PR.
 ## Differences vs pr-review
 
 - Triage rubric weighs design clarity, scope alignment, and assumption auditing over code correctness.
-- Disagreement responses cite specific plan sections (architecture impact, edge cases, testing strategy) or specific units.
+- Disagreement responses cite specific plan sections (architecture, design decisions, edge cases, testing strategy) or specific units.
 - Edits land in the design folder (`DESIGN.md` or `units/*.md`), not in source code.
 - No build verify step (the PR contains markdown, not code).
 - Commits go through `git-commit`.
