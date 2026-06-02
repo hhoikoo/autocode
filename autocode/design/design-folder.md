@@ -65,7 +65,7 @@ The epic plan. Sections (conditional ones are included when they carry weight; o
 - `## Testing strategy`: categories, fakes, minimum coverage.
 - `## Alternatives considered` (conditional): rejected whole-design approaches and why. Omit if there were none.
 - `## Sources`: every claim cited. Unsubstantiated claims are discarded.
-- `## Units`: the DAG overview. One row per unit: slug, one-line deliverable, `depends-on`. This is the human-readable index; the authoritative dependency data lives in each unit file's frontmatter.
+- `## Units`: the DAG overview. One row per unit: slug rendered as a relative link to its file (`[<slug>](units/<slug>.md)`), one-line deliverable, `depends-on`. This is the human-readable index; the authoritative dependency data lives in each unit file's frontmatter. Use relative links here, not absolute `blob` URLs: a relative link resolves at whatever ref the doc is viewed (branch, merge commit, after a rename), whereas `blob` URLs are for the design PR body, where relative links do not resolve.
 
 ## units/<slug>.md
 

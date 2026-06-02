@@ -22,6 +22,7 @@ One of:
 2. Generate follow-up questions per section and per unit. Bias toward: untested assumptions, interface shapes, error modes, concurrency, security, data shape, ordering invariants, and whether the unit decomposition and `depends-on` edges are right.
 3. For each question, decide: ask the user, dispatch a researcher, or both (parallel where possible).
 4. Apply resolutions in place to the relevant file (`DESIGN.md` or the unit file). Preserve existing structure; add a `## Critique log` at the bottom of `DESIGN.md` that lists each iteration's questions and resolutions (one line each).
+   - Make the decisions (questions, resolutions, sources) in the main session. The apply may fan out: when several units change in a pass, dispatch one generic Task subagent per affected unit in parallel, each handed the exact resolutions to write into its `units/<slug>.md`. Keep `DESIGN.md` edits and the `## Critique log` in the main session (shared file, serial). Use judgement: fan out when several units change, edit inline when only one does.
 5. Repeat steps 2-4 until a pass produces no new questions. Cap iterations at 5. On cap, ask the user via `AskUserQuestion` whether to continue.
 
 ## Output
