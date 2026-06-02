@@ -55,7 +55,7 @@ Tracker-side issue operations: view, create, identity, and future label / commen
 
 `issue-epic-list.sh` powers design-epic discovery: given an autocode epic `<id>`, return that epic's issue plus every unit sub-issue (`Issue[]`), in one live call (no search index). The caller matches body markers client-side (`autocode:epic=<id>`, `autocode:unit=<id>/<slug>`) to assign roles and read each unit's state. Each provider resolves the set natively: GitHub finds the epic by its body marker and reads units from the sub-issue relationship (no per-epic label); a provider without a native parent/child relationship may instead carry an `autocode-epic:<id>` label on every issue of the epic and list by it. Unit rows carry `parent` = the epic key; the epic row carries `parent: ""`. Default state is `all`, so a closed (done) epic or unit is included.
 
-`issue-transition.sh` accepts only the four-state enum values (`todo`, `in-progress`, `in-review`, `done`); the provider maps them to native state (GitHub: `autocode:<state>` label for open states, `closed` for done). Idempotent.
+`issue-transition.sh` accepts only the four-state enum values (`todo`, `in-progress`, `in-review`, `done`); the provider maps them to native state (GitHub: `autocode:in-progress` / `autocode:in-review` label for those two states, `todo` is open with no state label, `closed` for done). Idempotent.
 
 ## Optional scripts
 

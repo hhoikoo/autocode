@@ -75,7 +75,6 @@ issue_filter='
           [.labels[].name] as $names |
           if ($names | any(. == "autocode:in-review")) then "in-review"
           elif ($names | any(. == "autocode:in-progress")) then "in-progress"
-          elif ($names | any(. == "autocode:todo")) then "todo"
           else "todo"
           end
         )
