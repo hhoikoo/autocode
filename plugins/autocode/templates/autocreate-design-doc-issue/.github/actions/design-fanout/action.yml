@@ -18,18 +18,6 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Resolve org issue types
-      shell: bash
-      env:
-        GH_TOKEN: ${{ inputs.github-token }}
-        REPO: ${{ inputs.repo }}
-      run: |
-        set -euo pipefail
-        owner="${REPO%%/*}"
-        gh api "/orgs/${owner}/issue-types" 2>/dev/null \
-          | jq -r '.[] | "\(.name | ascii_downcase)\t\(.name)"' > "${RUNNER_TEMP}/org-types.tsv" || true
-        touch "${RUNNER_TEMP}/org-types.tsv"
-
     - name: Render issue bodies
       id: render
       shell: bash
@@ -61,7 +49,7 @@ runs:
         if [[ -n "${num}" ]]; then
           echo "epic already exists: #${num}"
         else
-          num=$("${{ github.action_path }}/create-design-issue.sh" "${REPO}" "${title}" "${type}" "${body}" "${RUNNER_TEMP}/org-types.tsv")
+          num=$("${{ github.action_path }}/create-design-issue.sh" "${REPO}" "${title}" "${type}" "${body}")
           echo "created epic #${num}"
         fi
         node=$(gh api graphql -H "GraphQL-Features:sub_issues" \
@@ -87,7 +75,7 @@ runs:
             echo "unit ${slug} already linked; skip"
             continue
           fi
-          num=$("${{ github.action_path }}/create-design-issue.sh" "${REPO}" "${title}" "${type}" "${body}" "${RUNNER_TEMP}/org-types.tsv" "${EPIC_NODE}")
+          num=$("${{ github.action_path }}/create-design-issue.sh" "${REPO}" "${title}" "${type}" "${body}" "${EPIC_NODE}")
           echo "created and linked unit ${slug} as #${num}"
           sleep 1
         done < <(awk -F'\t' '$1=="unit"' "${manifest}")

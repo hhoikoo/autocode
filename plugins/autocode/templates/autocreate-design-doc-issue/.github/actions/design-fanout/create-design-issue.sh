@@ -5,14 +5,15 @@
 # this once per epic and once per unit, passing the rendered body and (for units)
 # the epic's GraphQL node id.
 #
-# Type: when the owning org defines a matching native Issue Type (case-insensitive)
-# it is set via PATCH; otherwise a `type:<x>` label is applied as a fallback.
+# Type: set as a native Issue Type by name via a repo-scoped REST write, then
+# confirmed by reading it back. If the type did not take (the org defines no such
+# type, or none at all), a `type:<x>` label is applied as a fallback. Avoids the
+# org-scoped issue-types read, which the workflow GITHUB_TOKEN cannot perform.
 #
 # Usage:
-#   create-design-issue.sh <repo> <title> <type> <body-file> <org-types-file> [parent-node-id]
+#   create-design-issue.sh <repo> <title> <type> <body-file> [parent-node-id]
 #
-# <org-types-file> is a TSV of `lowercased-name<TAB>native-name`, empty when the
-# owner defines no native types. Prints the created issue number on stdout.
+# Prints the created issue number on stdout.
 
 set -euo pipefail
 
@@ -20,8 +21,7 @@ repo="$1"
 title="$2"
 type="$3"
 body_file="$4"
-org_types_file="$5"
-parent_node="${6:-}"
+parent_node="${5:-}"
 
 owner="${repo%%/*}"
 name="${repo##*/}"
@@ -35,20 +35,19 @@ node_id() {  # $1=issue number
     -f o="${owner}" -f n="${name}" -F num="$1" --jq '.data.repository.issue.id'
 }
 
-native=$(awk -F'\t' -v w="$(printf '%s' "${type}" | tr '[:upper:]' '[:lower:]')" '$1==w{print $2; exit}' "${org_types_file}")
+type_lower=$(printf '%s' "${type}" | tr '[:upper:]' '[:lower:]')
+# Issue Types are named in Title case (Bug, Task, ...); match that when setting.
+type_name=$(printf '%s' "${type_lower}" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')
 
-args=(issue create --repo "${repo}" --title "${title}" --body-file "${body_file}")
-if [[ -z "${native}" ]]; then
-  tl=$(printf '%s' "${type}" | tr '[:upper:]' '[:lower:]')
-  gh label create "type:${tl}" --force >/dev/null 2>&1 || true
-  args+=(--label "type:${tl}")
-fi
+num=$(gh issue create --repo "${repo}" --title "${title}" --body-file "${body_file}" | grep -oE '[0-9]+$')
 
-num=$(gh "${args[@]}" | grep -oE '[0-9]+$')
-
-if [[ -n "${native}" ]]; then
-  gh api -X PATCH "/repos/${repo}/issues/${num}" -f type="${native}" >/dev/null 2>&1 \
-    || echo "warning: created #${num} but could not set native type ${native}" >&2
+# Set the native Issue Type by name (repo-scoped); an unknown name is silently
+# dropped, so confirm by reading it back and fall back to a type:<x> label.
+gh api -X PATCH "/repos/${repo}/issues/${num}" -f type="${type_name}" >/dev/null 2>&1 || true
+applied=$(gh api "/repos/${repo}/issues/${num}" --jq '.type.name // empty' 2>/dev/null || true)
+if [[ -z "${applied}" ]]; then
+  gh label create "type:${type_lower}" --repo "${repo}" --force >/dev/null 2>&1 || true
+  gh issue edit "${num}" --repo "${repo}" --add-label "type:${type_lower}" >/dev/null
 fi
 
 if [[ -n "${parent_node}" ]]; then
