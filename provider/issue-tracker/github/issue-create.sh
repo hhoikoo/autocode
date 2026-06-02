@@ -6,10 +6,11 @@ set -euo pipefail
 #                  [-a <assignee>] [-S <points>] [-g <owner/repo>] [-l <label>]...
 # Depends on: gh, jq.
 #
-# Issue type: materialized as a native GitHub Issue Type when the owning org
-# exposes a matching one (case-insensitive, e.g. autocode `bug` -> GitHub `Bug`);
-# otherwise falls back to a `type:<x>` label. Issue Types are org-scoped, so user
-# repos and orgs lacking the type always take the label path.
+# Issue type: set as a native GitHub Issue Type by name (e.g. autocode `bug` ->
+# GitHub `Bug`) via a repo-scoped REST write, then confirmed by reading it back.
+# If the type did not take (the org defines no such type, or none at all as on
+# user repos) it falls back to a `type:<x>` label. Avoids the org-scoped
+# issue-types read, which a workflow GITHUB_TOKEN cannot perform.
 
 if ! command -v gh >/dev/null 2>&1; then
   echo "issue-create.sh: gh CLI not on PATH; install GitHub CLI and run 'gh auth login'" >&2
@@ -63,22 +64,12 @@ else
 fi
 
 type_lower=$(printf '%s' "${type}" | tr '[:upper:]' '[:lower:]')
-
-# Resolve the native Issue Type name when the org exposes a match; empty -> label.
-native_type=""
-if org_types=$(gh api "/orgs/${owner}/issue-types" 2>/dev/null); then
-  native_type=$(printf '%s' "${org_types}" \
-    | jq -r --arg w "${type_lower}" 'map(select((.name | ascii_downcase) == $w))[0].name // empty')
-fi
+# Issue Types are named in Title case (Bug, Task, ...); match that when setting.
+type_name=$(printf '%s' "${type_lower}" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')
 
 args=(issue create --title "${summary}")
 if [[ -n "${repo_override}" ]]; then
   args+=(--repo "${repo_override}")
-fi
-
-if [[ -z "${native_type}" ]]; then
-  gh label create "type:${type_lower}" --force >/dev/null 2>&1 || true
-  args+=(--label "type:${type_lower}")
 fi
 
 if [[ -n "${body_file}" ]]; then
@@ -103,10 +94,18 @@ if [[ -z "${child_number}" ]]; then
   exit 2
 fi
 
-# gh issue create has no native-type flag; set it via REST after creation.
-if [[ -n "${native_type}" ]]; then
-  gh api -X PATCH "/repos/${owner}/${name}/issues/${child_number}" -f type="${native_type}" >/dev/null \
-    || echo "issue-create.sh: warning: created #${child_number} but could not set native issue type '${native_type}'" >&2
+# Set the native Issue Type by name (repo-scoped issues:write; no org read). An
+# unknown type name is silently dropped, so confirm by reading it back; apply a
+# type:<x> label only when the type did not take.
+gh api -X PATCH "/repos/${owner}/${name}/issues/${child_number}" -f type="${type_name}" >/dev/null 2>&1 || true
+applied_type=$(gh api "/repos/${owner}/${name}/issues/${child_number}" --jq '.type.name // empty' 2>/dev/null || true)
+if [[ -z "${applied_type}" ]]; then
+  gh label create "type:${type_lower}" --force >/dev/null 2>&1 || true
+  edit_args=(issue edit "${child_number}" --add-label "type:${type_lower}")
+  if [[ -n "${repo_override}" ]]; then
+    edit_args+=(--repo "${repo_override}")
+  fi
+  gh "${edit_args[@]}" >/dev/null
 fi
 
 # Link as sub-issue when a parent was requested.

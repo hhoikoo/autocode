@@ -34,7 +34,7 @@ The epic has no `in-review` state: there is no aggregate epic PR. Each unit has 
 
 ## Default
 
-- GitHub: `todo`, `in-progress`, `in-review` all map to `open` with an `autocode:<state>` label distinguishing them; `done` maps to `closed`.
+- GitHub: `in-progress` and `in-review` map to `open` with an `autocode:<state>` label; `todo` is `open` with no state label (the absence of a label is the default state); `done` maps to `closed`.
 - Jira: 1-to-1 mapping with `To Do`, `In Progress`, `In Review`, `Done`.
 
 ## Output format

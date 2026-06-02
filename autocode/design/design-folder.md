@@ -50,7 +50,7 @@ When the work is one PR's worth, the epic and the unit are the same thing. The d
 
 The rule everything keys on: `units/` present -> multi-unit epic; `units/` absent -> flat single issue. Use flat when the plan would otherwise produce a single unit; use multi-unit when the work splits into independently mergeable pieces.
 
-All four are committed. Only the transient state files `.autocode/.impl-context` and `.autocode/.progress-last-sha` (written by `impl-start` and the progress hook) are gitignored.
+All four are committed. Only the transient state files `.autocode/.impl-context` and `.autocode/.progress-last-sha` (written by `impl-start` and the progress hook) are gitignored; this list is canonical. `/autocode-setup` and `/autocode-update` scaffold `<repo-root>/.autocode/.gitignore` to ignore them, with `impl-start` as a backstop. The repo-root `.autocode/` always holds these artifacts, independent of where `AUTOCODE_CONFIG_DIR` points.
 
 ## DESIGN.md
 

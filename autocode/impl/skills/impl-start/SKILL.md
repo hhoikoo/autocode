@@ -46,6 +46,6 @@ One of:
 - Never branch from a dirty working tree on the default branch.
 - Delegate branch creation to `git-create-branch`; never duplicate that logic.
 - Pick exactly one ready unit per invocation. Re-run the skill to start another.
-- The state files (`.autocode/.impl-context`, `.autocode/.progress-last-sha`) are gitignored; ensure `$repo_root/.autocode/.gitignore` ignores them (create if missing).
+- The state files (`.autocode/.impl-context`, `.autocode/.progress-last-sha`) are gitignored. `/autocode-setup` and `/autocode-update` are the primary owners of `$repo_root/.autocode/.gitignore`; as a backstop (relocated config dir, or a repo set up before this was added), ensure it ignores them here (create if missing, append if absent).
 
 $ARGUMENTS
