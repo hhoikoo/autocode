@@ -63,6 +63,7 @@ PR lifecycle on the git hosting side: create, view, edit body, link to issue, re
 | `pr-create.sh` | `--title <t> --body-file <p> [--base <b>] [--assignee <a>] [--no-review]` | PR URL on a single line |
 | `pr-body-edit.sh` | `<pr> <body-file>` | none |
 | `pr-issue-link.sh` | `<pr> <issue-id>` | none |
+| `issue-ref.sh` | `<tracker-key>` | git-remote issue number to close, or empty |
 | `pr-review-request.sh` | `<pr> <reviewer>...` | none |
 | `pr-comment-list.sh` | `<pr> [--kind review\|issue\|all]` | `Comment[]` JSON |
 | `pr-comment-reply.sh` | `<pr> <comment-id> <text>` | none |
@@ -75,6 +76,7 @@ PR lifecycle on the git hosting side: create, view, edit body, link to issue, re
 - `pr-view.sh` defaults to the PR for the current branch when `<pr>` is omitted. With `--json`, stdout is JSON containing the requested fields.
 - `pr-create.sh` `--no-review` opens the PR without the script requesting any reviewers (no `--reviewer` passed to gh). Server-side CODEOWNERS auto-request, when the repo enables it, is outside gh's control and is not suppressed.
 - `pr-issue-link.sh` is idempotent. It detects existing `close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved #N` references (case-insensitive, word-boundary anchored) and skips when present. When missing, it appends a canonical `Closes #N` line.
+- `issue-ref.sh` bridges the issue-tracker key to a git-remote-native close target. A close reference only auto-closes when it names a git-remote issue number, which differs from the tracker key when the tracker is not the git remote. The GitHub implementation echoes a numeric key as-is (GitHub Issues is the tracker), and for a non-numeric key (e.g. Jira `PROJ-123`) searches for a mirrored GitHub issue, emitting its number or empty. Empty stdout with exit `0` means "nothing on this remote to close" and is not a failure; callers skip the link step.
 - `pr-review-request.sh` tolerates reviewers already on the PR without error.
 - `pr-comment-list.sh` default `--kind` is `all`. The merged list discriminates via `.kind`.
 - `pr-comment-reply.sh` posts a threaded reply to a review comment. Falls back to a regular issue-style PR comment if the threaded-reply API rejects the target id.

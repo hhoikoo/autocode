@@ -11,6 +11,10 @@ One of:
 - `<ticket-id>` (e.g. `42`, `BA-1234`): ticket mode.
 - `<type>: <description>` (e.g. `feat: add login flow`): description mode.
 
+Modifiers (from-design):
+- `--unit <slug>`: select this ready unit directly instead of prompting.
+- `--auto`: run unattended (no `AskUserQuestion`) and end with a structured result. Requires an unambiguous unit: either `--unit`, or exactly one ready unit.
+
 ## Workflow (from-design)
 
 1. Locate `.autocode/design/<id>-<short>/` (glob on either half). Read `DESIGN.md` and any `units/*.md`. Multi-unit if `units/` exists; flat otherwise.
@@ -23,7 +27,7 @@ One of:
    - Flat design: the one issue is the unit; ready iff its status is `todo`.
    - Multi-unit: a unit is ready iff its status is `todo` and every slug in its `depends-on` (from the unit file frontmatter) maps to a unit whose status is `done`. Units already `in-progress`/`in-review`/`done` are excluded.
    - If the ready set is empty, report why (all done, or all remaining are blocked on unfinished deps) and stop.
-5. Present the ready units via `AskUserQuestion` (slug + one-line deliverable). The user picks one. Its sub-issue `key` is the ticket for the rest of the flow.
+5. Select the unit. With `--unit <slug>`, pick that unit directly and error if it is not in the ready set. Otherwise present the ready units via `AskUserQuestion` (slug + one-line deliverable) and let the user pick one; under `--auto` with no `--unit`, skip the prompt and pick the sole ready unit, erroring if the ready set is empty or has more than one. Its sub-issue `key` is the ticket for the rest of the flow.
 6. Ensure a worktree per `@~/.autocode/autocode/_config/guides/worktree.md` (based on the default branch, where deps are already merged). Inside it, delegate to `git-create-branch <key>` for the feature branch.
 7. Transition state:
    - `provider/run.sh issue-tracker issue-transition <key> in-progress`.
@@ -32,7 +36,7 @@ One of:
 9. Seed the worktree state files (both gitignored; the Stop progress hook reads them):
    - `.autocode/.impl-context`: a JSON object with keys `design_id`, `shortname`, `slug`, `unit_key`, `epic_key` (empty string for flat), `progress_log` (absolute path to the per-unit log). The hook parses this with `jq`, so it must be valid JSON.
    - `.autocode/.progress-last-sha`: current `git rev-parse HEAD`.
-10. Report: worktree path, branch, unit slug, sub-issue key, and next step (implement, then `/impl-push`).
+10. Report: worktree path, branch, unit slug, sub-issue key, and next step (`/impl` to run the unit through to a PR, or `/impl-plan` then `/impl-execute` to drive it by hand). With `--auto`, emit these as a structured result block (worktree path, branch, slug, unit_key, epic_key, design_id) and omit the human next-step, so an orchestrator can thread the worktree path to later phases.
 
 ## Workflow (ticket / description mode)
 
