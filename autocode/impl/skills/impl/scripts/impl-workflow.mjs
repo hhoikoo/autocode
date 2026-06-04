@@ -1,0 +1,220 @@
+export const meta = {
+  name: 'impl-unit',
+  description: 'Implement one design unit: plan, execute, review (challenge/decide), fix, push, hygiene',
+  phases: [
+    { title: 'Plan', detail: 'opus: resolve all unknowns into a mechanical plan', model: 'opus' },
+    { title: 'Execute', detail: 'sonnet: carry out the plan and commit', model: 'sonnet' },
+    { title: 'Prep', detail: 'sonnet: size the diff and pick review dimensions', model: 'sonnet' },
+    { title: 'Review', detail: 'opus: per-dimension reviewers', model: 'opus' },
+    { title: 'Challenge', detail: 'opus: contest the findings', model: 'opus' },
+    { title: 'Decide', detail: 'opus: rule which findings survive', model: 'opus' },
+    { title: 'Fix', detail: 'sonnet: apply the decided findings', model: 'sonnet' },
+    { title: 'Push', detail: 'sonnet: commit the rollup and open the PR', model: 'sonnet' },
+    { title: 'Hygiene', detail: 'sonnet: doc/PR-description hygiene', model: 'sonnet' },
+  ],
+}
+
+// args (from the impl launcher): { homeDir, worktree, slug, base, dims }
+// unit_key/design_id are not passed: phases read them from .autocode/.impl-context in the worktree.
+const HOME = args.homeDir
+const WT = args.worktree
+const SLUG = args.slug
+const BASE = args.base
+const DIMS = args.dims ? String(args.dims).split(',').map((d) => d.trim()).filter(Boolean) : null
+const MAX_FIX_ROUNDS = 2
+
+// Subagents cannot spawn subagents, so all fan-out lives here in the workflow
+// runtime. Agents run skills by reading the canonical body by absolute path
+// (the skill catalog is not reliably visible to workflow agents).
+const skill = (name) => `${HOME}/.autocode/autocode/impl/skills/${name}/SKILL.md`
+const inWt = `Work in the git worktree at ${WT}: cd into it before doing anything. `
+const follow = (path, extra) => `Read the skill at ${path} and follow it exactly. ${extra}`
+const readOnly = 'You are a read-only reviewer: never edit, write, or run mutating commands. '
+
+const PREP_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    empty: { type: 'boolean' },
+    diff_lines: { type: 'integer' },
+    changed_files: { type: 'array', items: { type: 'string' } },
+    dimensions: { type: 'array', items: { type: 'string' } },
+  },
+  required: ['empty', 'diff_lines', 'changed_files', 'dimensions'],
+}
+
+const FINDINGS_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    findings: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          file: { type: 'string' },
+          line: { type: 'integer' },
+          dimension: { type: 'string' },
+          severity: { type: 'string', enum: ['Important', 'Nit', 'Pre-existing'] },
+          claim: { type: 'string' },
+          evidence: { type: 'string' },
+        },
+        required: ['file', 'line', 'dimension', 'severity', 'claim', 'evidence'],
+      },
+    },
+  },
+  required: ['findings'],
+}
+
+const CHALLENGE_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    verdicts: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          id: { type: 'string' },
+          verdict: { type: 'string', enum: ['refuted', 'weakened', 'unrefuted'] },
+          reason: { type: 'string' },
+        },
+        required: ['id', 'verdict', 'reason'],
+      },
+    },
+  },
+  required: ['verdicts'],
+}
+
+const DECIDE_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    actionable: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          file: { type: 'string' },
+          line: { type: 'integer' },
+          severity: { type: 'string', enum: ['Important', 'Nit'] },
+          claim: { type: 'string' },
+          fix: { type: 'string' },
+        },
+        required: ['file', 'line', 'severity', 'claim', 'fix'],
+      },
+    },
+    dropped: { type: 'integer' },
+    tally: { type: 'string' },
+  },
+  required: ['actionable', 'dropped', 'tally'],
+}
+
+const PUSH_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    pr_url: { type: 'string' },
+    branch: { type: 'string' },
+    hygiene_shas: { type: 'array', items: { type: 'string' } },
+    hygiene_files: { type: 'array', items: { type: 'string' } },
+  },
+  required: ['pr_url', 'branch', 'hygiene_shas', 'hygiene_files'],
+}
+
+const importantOf = (decided) => decided.actionable.filter((a) => a.severity === 'Important')
+
+async function reviewCycle(tag) {
+  const defaultDims = DIMS ? JSON.stringify(DIMS) : '["correctness","security","performance"]'
+  const prep = await agent(
+    inWt +
+      `Build the review context for the branch diff against ${BASE}. Count changed lines across \`git diff ${BASE}...HEAD\`, \`git diff HEAD\`, and untracked files from \`git status --porcelain\`; list the changed files; choose dimensions: under ~50 changed lines use ["correctness"], otherwise use ${defaultDims}. Set empty=true only when there is no diff at all.`,
+    { label: `prep${tag}`, phase: 'Prep', model: 'sonnet', schema: PREP_SCHEMA },
+  )
+  if (prep.empty || !prep.dimensions.length) return { actionable: [], dropped: 0, tally: 'no diff to review' }
+
+  const reviewed = await parallel(prep.dimensions.map((dim) => () =>
+    agent(
+      inWt + readOnly +
+        `Assemble the review context yourself: compute the diff (\`git diff ${BASE}...HEAD\`, \`git diff HEAD\`, untracked via \`git status --porcelain\`), gather the changed files and the matching CLAUDE.md and .claude/rules. ` +
+        (dim === 'security' ? 'Strip commit messages and any PR/branch description from what you read (framing bias suppresses detection). ' : '') +
+        follow(skill('impl-critique-review'), `Review only the "${dim}" dimension and return the findings.`),
+      { label: `review:${dim}${tag}`, phase: 'Review', model: 'opus', schema: FINDINGS_SCHEMA },
+    )))
+
+  const seen = new Set()
+  const findings = []
+  for (const f of reviewed.filter(Boolean).flatMap((r) => r.findings)) {
+    if (!f.file || f.line == null || !f.claim) continue
+    const key = `${f.file}:${f.line}|${f.claim}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    findings.push({ id: `F${findings.length + 1}`, ...f })
+  }
+  if (!findings.length) return { actionable: [], dropped: 0, tally: 'no findings' }
+
+  const challenge = await agent(
+    inWt + readOnly + follow(skill('impl-critique-challenge'),
+      `Challenge these findings. Findings JSON:\n${JSON.stringify(findings)}`),
+    { label: `challenge${tag}`, phase: 'Challenge', model: 'opus', schema: CHALLENGE_SCHEMA },
+  )
+
+  const decided = await agent(
+    inWt + readOnly + follow(skill('impl-critique-decide'),
+      `Decide which findings survive. Findings JSON:\n${JSON.stringify(findings)}\nChallenges JSON:\n${JSON.stringify(challenge.verdicts)}`),
+    { label: `decide${tag}`, phase: 'Decide', model: 'opus', schema: DECIDE_SCHEMA },
+  )
+  return decided
+}
+
+phase('Plan')
+await agent(
+  inWt + follow(skill('impl-plan'),
+    `Run it in --auto mode for unit ${SLUG}. It writes the mechanical plan to .autocode/.impl-plan.md. Return the plan path and a one-line summary.`),
+  { label: 'plan', phase: 'Plan', model: 'opus' },
+)
+
+phase('Execute')
+await agent(
+  inWt + follow(skill('impl-execute'),
+    'Run it in --auto mode. It reads .autocode/.impl-plan.md, implements the unit, and commits via git-commit. Return a one-paragraph summary of what shipped.'),
+  { label: 'execute', phase: 'Execute', model: 'sonnet' },
+)
+
+let round = 0
+let decided = await reviewCycle(`-r${round}`)
+while (importantOf(decided).length && round < MAX_FIX_ROUNDS) {
+  round += 1
+  log(`fix round ${round}: ${importantOf(decided).length} important finding(s)`)
+  await agent(
+    inWt + follow(skill('impl-execute'),
+      `Run it in --fix --auto mode. Apply these decided findings minimally and commit:\n${JSON.stringify(importantOf(decided))}`),
+    { label: `fix-r${round}`, phase: 'Fix', model: 'sonnet' },
+  )
+  decided = await reviewCycle(`-r${round}`)
+}
+
+phase('Push')
+const push = await agent(
+  inWt + follow(skill('impl-push'),
+    'Run it with --auto --no-pr-hygiene. Commit the progress rollup, open the PR, link the issue, and advance the sub-issue. Return the PR URL, branch, and the pr-hygiene SHA list and changed-file list it surfaced.'),
+  { label: 'push', phase: 'Push', model: 'sonnet', schema: PUSH_SCHEMA },
+)
+
+phase('Hygiene')
+await agent(
+  inWt + follow(`${HOME}/.autocode/autocode/pr/agents/pr-hygiene.md`,
+    `Assess documentation impact and PR-description currency for the PR just opened: ${push.pr_url}. Pushed commits: ${JSON.stringify(push.hygiene_shas)}. Changed files: ${JSON.stringify(push.hygiene_files)}.`),
+  { label: 'hygiene', phase: 'Hygiene', model: 'sonnet' },
+)
+
+return {
+  pr_url: push.pr_url,
+  branch: push.branch,
+  fix_rounds: round,
+  remaining_important: importantOf(decided).length,
+  review_tally: decided.tally,
+}
