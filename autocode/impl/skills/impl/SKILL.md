@@ -16,11 +16,11 @@ The workflow runs each phase as its own agent with a per-phase model (opus for r
 2. Resolve the workflow inputs:
    - `homeDir`: `echo "$HOME"`.
    - `base`: the repo's default branch (`git symbolic-ref --short refs/remotes/origin/HEAD` with the `origin/` prefix stripped; fall back to the local default branch).
-   - `worktree`, `slug`, `unit_key`, `design_id` from step 1; `dims` from `--dims` when given.
+   - `worktree` and `slug` from step 1; `dims` from `--dims` when given. The `unit_key` and `design_id` are not passed: every phase runs inside the worktree and reads them from `.autocode/.impl-context` (written by `impl-start`).
 
 3. Launch the workflow. Call the Workflow tool with:
    - `scriptPath`: `<homeDir>/.autocode/autocode/impl/skills/impl/scripts/impl-workflow.mjs` (resolve `<homeDir>` from step 2).
-   - `args`: `{ homeDir, worktree, slug, unit_key, design_id, base, dims }`.
+   - `args`: `{ homeDir, worktree, slug, base, dims }`.
    The script runs every phase in the background with per-phase models. This session does not run the implementation, review, or PR work; it waits for the workflow to finish.
 
 4. Report the workflow's final result: PR URL, branch, number of fix rounds, any remaining `Important` findings, and the review tally. Next step: `/pr-review` when reviews land.

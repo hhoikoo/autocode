@@ -4,6 +4,7 @@ export const meta = {
   phases: [
     { title: 'Plan', detail: 'opus: resolve all unknowns into a mechanical plan', model: 'opus' },
     { title: 'Execute', detail: 'sonnet: carry out the plan and commit', model: 'sonnet' },
+    { title: 'Prep', detail: 'sonnet: size the diff and pick review dimensions', model: 'sonnet' },
     { title: 'Review', detail: 'opus: per-dimension reviewers', model: 'opus' },
     { title: 'Challenge', detail: 'opus: contest the findings', model: 'opus' },
     { title: 'Decide', detail: 'opus: rule which findings survive', model: 'opus' },
@@ -13,7 +14,8 @@ export const meta = {
   ],
 }
 
-// args (from the impl launcher): { homeDir, worktree, slug, unit_key, design_id, base, dims }
+// args (from the impl launcher): { homeDir, worktree, slug, base, dims }
+// unit_key/design_id are not passed: phases read them from .autocode/.impl-context in the worktree.
 const HOME = args.homeDir
 const WT = args.worktree
 const SLUG = args.slug
@@ -130,7 +132,7 @@ async function reviewCycle(tag) {
   const prep = await agent(
     inWt +
       `Build the review context for the branch diff against ${BASE}. Count changed lines across \`git diff ${BASE}...HEAD\`, \`git diff HEAD\`, and untracked files from \`git status --porcelain\`; list the changed files; choose dimensions: under ~50 changed lines use ["correctness"], otherwise use ${defaultDims}. Set empty=true only when there is no diff at all.`,
-    { label: `prep${tag}`, phase: 'Review', model: 'sonnet', schema: PREP_SCHEMA },
+    { label: `prep${tag}`, phase: 'Prep', model: 'sonnet', schema: PREP_SCHEMA },
   )
   if (prep.empty || !prep.dimensions.length) return { actionable: [], dropped: 0, tally: 'no diff to review' }
 
