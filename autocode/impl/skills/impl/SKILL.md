@@ -7,6 +7,7 @@ Stateless, re-entrant epic orchestrator. Holds no durable state; reconstructs al
 - `--from-design <id|shortname>`: epic mode. Resolves the design folder and drives the full wave/cascade/archive cycle.
 - Bare `<ticket-id>` / `<type>: <description>`: single-unit launch (unchanged contract). Optional when cwd is already a set-up unit worktree (epic mode if its `.impl-context` resolves an epic; else single-unit).
 - `--dims <list>`: review dimensions, forwarded to each launched `impl-workflow`.
+- `--watch`: opt in at launch to a session-scoped monitoring cron (off by default). Equivalent to accepting the plain at-launch prompt.
 
 ## Workflow
 
@@ -67,7 +68,40 @@ When every unit is `done`, invoke `impl-archive` passing the epic id explicitly 
 
 ## Monitoring
 
-This unit launches and cascades but does not monitor or merge. The `impl-orchestrator-monitor` unit (depends on this) fills this section with `monitor-workflow`, the user-gated merge, notifications, and opt-in cron. This heading is the integration point.
+### Trigger
+
+Monitoring runs on explicit user command (user asks to check the PRs) or an opt-in cron tick; never automatically every turn (merge loop is human-paced).
+
+### Launch the monitor
+
+1. Compute the in-review set: reuse Reconciliation's `in-review` units (`pr-find <issue-key>` -> open PR). For each, read the PR's head branch via `gh pr view <pr> --json headRefName`. Map `branch` -> `worktree` from `git worktree list --porcelain` by matching the `/<key>/` segment (same recovery as Reconciliation).
+2. If an in-review PR has no worktree (pruned out of band): let the checker return `needs_human` rather than cd into a missing path; the verdict surfaces it for the user.
+3. Resolve `homeDir` (`echo "$HOME"`).
+4. Launch `monitor-workflow.mjs` via the `Workflow` tool, background, `args: { homeDir, prs }` where each `prs` entry is `{ pr, slug, branch, worktree }`. Its completion re-invokes the orchestrator (same `<task-notification>` mechanism as `impl-workflow`).
+
+### Read the report
+
+On completion, read `{ verdicts, tally }`. Surface every `needs_human` verdict with its `reason` (cases a person must handle). List `merge_ready` PRs.
+
+### User-gated merge
+
+Present merge-ready PRs; wait for explicit approval. Only on approval, merge each named PR via `provider/run.sh git-remote pr-merge <pr> --admin`. Never merge without approval; the workflow never merges.
+
+### Hand back to the cascade
+
+Each merge flips its unit to `done`; recompute the ready set and launch the next wave (logic owned by `### Merge-driven cascade`; invoke it, do not duplicate).
+
+### Notifications
+
+Emit a `PushNotification` when PRs become merge-ready and on every cron tick. One line, <200 chars, lead with the actionable fact (e.g. `2 PRs merge-ready: <slug>, <slug>`). A "not sent" result (Bedrock/Vertex/Foundry) is expected and non-fatal; do not block on it.
+
+### Opt-in cron (--watch)
+
+Off by default; the launch pipeline self-sustains without it. Offer at launch via a plain prompt (NOT `AskUserQuestion`), or accept `--watch`. On opt-in: `CronCreate` a periodic tick, session-scoped (`durable` default false), standard 5-field cron, min 1-minute period, pick an off-`:00`/`:30` minute when the period allows. The cron prompt re-launches `monitor-workflow` (remediation + `PushNotification`); it never crosses the merge gate.
+
+Tell the user: auto-expires after 7 days; session-scoped (stops on session exit, restored only on `--resume`/`--continue` within 7 days); fires only while the session is open and idle between turns, no catch-up for missed fires. Provide the `CronCreate` job id for `CronDelete`.
+
+Local-session cron is the only supported path: headless/cloud Routines lose local `gh` auth and stdio providers, so a tick there fails fast (the monitor pass surfaces the failure and notifies); do not schedule a Routine.
 
 ## Rules
 
@@ -75,6 +109,8 @@ This unit launches and cascades but does not monitor or merge. The `impl-orchest
 - Reconcile by PR existence (`pr-find <issue-key>`), not tracker status alone, before any worktree/branch deletion. Never relaunch over a run live in this session.
 - Cross-session `in-progress` with no live run -> restart (clean up worktree + branch, reset sub-issue to `todo`), not resume. `resumeFromRunId` only same-session.
 - Thin orchestration: launch and cascade only; the per-phase skills (`impl-start`, `impl-plan`, `impl-execute`, `impl-critique-*`, `impl-push`, `pr-rebase`, `pr-fix-ci`, `pr-review`, `impl-archive`) stay individually invocable. `impl-workflow.mjs` and per-unit phase logic are unchanged.
-- Monitoring and merge are out of scope here; they belong to `impl-orchestrator-monitor`.
+- Monitoring runs on user command or opt-in cron only, never automatically every turn.
+- The monitor workflow never merges; merge is main-session and user-gated (`pr-merge <pr> --admin` only after explicit approval).
+- Cron is opt-in, session-scoped, never merges; local-session is the only supported cron context.
 
 $ARGUMENTS
