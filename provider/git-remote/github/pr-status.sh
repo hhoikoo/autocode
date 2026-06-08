@@ -64,7 +64,7 @@ printf '%s' "${raw}" | jq '
            ((.status // .state // "") | ascii_downcase) as $s |
            $s == "in_progress" or $s == "queued" or $s == "pending" or
            $s == "waiting" or $s == "requested" or
-           ((.conclusion // null) == null and $s != "completed")
+           ((.conclusion // null) == null and (.status != null) and $s != "completed")
          )) then "pending"
     else "passing"
     end
