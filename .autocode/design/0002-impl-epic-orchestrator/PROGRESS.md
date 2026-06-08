@@ -26,3 +26,11 @@ Added two GitHub provider scripts: `pr-find.sh` (resolves a PR URL from a branch
 PR: TBD  Unit: #19
 
 Added `--auto` flag to both `pr-fix-ci` and `pr-review` skills. Under `--auto`, each skill runs unattended (no `AskUserQuestion`), handles discussion-band comments by deferring them instead of prompting, and emits a structured terminal result block (`{ pr, fixed, ci, needs_human, reason }` for `pr-fix-ci`; `{ pr, applied, deferred, needs_human, reason }` for `pr-review`) so an orchestrator can branch on the outcome without parsing prose output.
+
+## impl-orchestrator-core — 2026-06-08
+
+PR: TBD  Unit: #17
+
+Rewrote the `impl` skill from a single-unit launcher into a stateless, re-entrant epic orchestrator. The orchestrator reconstructs all state each turn from the tracker (done / in-review / todo) and the session's live run ids; reconciles by PR existence via `pr-find` rather than tracker status alone; launches a capped wave of per-unit background workflows under `impl.max-concurrent-units`; refills empty slots on completion; prunes merged worktrees; and triggers `impl-archive` when every unit is done. Single-unit invocations retain their existing contract unchanged. Added the `impl.max-concurrent-units` setting to `settings-schema.md` and updated `autocode/impl/CLAUDE.md` with the new epic-orchestrator entry point and routing rules.
+
+Notes: The monitoring, merge-gating, and cron sub-units (`impl-orchestrator-monitor`, `impl-orchestrator-notify`, `impl-cron`) are separate units in this epic and depend on this one.
