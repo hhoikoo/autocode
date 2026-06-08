@@ -1,0 +1,107 @@
+# GitHub Action: autocreate tracker issues from a newly merged design doc.
+#
+# On a merged PR that ADDS a new .autocode/design/<id>-<short>/DESIGN.md, create
+# one epic issue plus a native sub-issue per unit (or a single issue for a flat
+# design with no units/). No AI. Bodies, markers, and native sub-issue links match
+# autocode/design/design-folder.md, so impl-start discovery matches the manual
+# /design-fanout skill. Idempotent: an epic/unit whose marker already exists is
+# skipped, so re-runs and edits never duplicate.
+#
+# Detection (dorny) and creation are separate jobs; each design folder is its own
+# matrix leg calling the .github/actions/design-fanout composite action, so
+# concurrent merges never cross-create.
+#
+# Install: copy this file to <repo>/.github/workflows/ and the
+# .github/actions/design-fanout/ directory to <repo>/.github/actions/. Requires
+# the default GITHUB_TOKEN.
+#
+# The <!-- autocode:epic=... --> / <!-- autocode:unit=... --> body markers are the
+# discovery contract; do not rename them.
+
+name: autocreate design doc issue
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  changes:
+    name: Detect New Design Docs
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
+    outputs:
+      any: ${{ steps.scan.outputs.any }}
+      dirs: ${{ steps.scan.outputs.dirs }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            design:
+              - '.autocode/design/**'
+
+      - name: List newly added design folders
+        id: scan
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          DESIGN: ${{ steps.filter.outputs.design }}
+        run: |
+          set -euo pipefail
+          if [[ "${DESIGN}" != "true" ]]; then
+            echo "any=false" >> "${GITHUB_OUTPUT}"
+            echo "dirs=[]" >> "${GITHUB_OUTPUT}"
+            echo "no design files changed in this PR"
+            exit 0
+          fi
+          dirs=$(gh api --paginate "repos/${REPO}/pulls/${PR}/files" \
+            --jq '.[] | select(.status=="added") | .filename' \
+            | sed -nE 's#^(\.autocode/design/[^/]+)/DESIGN\.md$#\1#p' | sort -u \
+            | jq -R . | jq -sc 'map(select(. != ""))')
+          if [[ "${dirs}" == "[]" ]]; then
+            echo "any=false" >> "${GITHUB_OUTPUT}"
+            echo "dirs=[]" >> "${GITHUB_OUTPUT}"
+            echo "no newly added design doc in this PR"
+          else
+            echo "any=true" >> "${GITHUB_OUTPUT}"
+            echo "dirs=${dirs}" >> "${GITHUB_OUTPUT}"
+            echo "new design folders: ${dirs}"
+          fi
+
+  create:
+    name: Create Design Doc Issues
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.any == 'true'
+    # Serialize any two runs that touch the SAME design folder (e.g. a re-run of
+    # the same PR mid-flight) so the find_epic check can never race itself into a
+    # duplicate epic. Different folders keep running in parallel.
+    concurrency:
+      group: autocreate-design-doc-issue-${{ matrix.dir }}
+      cancel-in-progress: false
+    strategy:
+      fail-fast: false
+      matrix:
+        dir: ${{ fromJSON(needs.changes.outputs.dirs) }}
+
+    steps:
+      - name: Checkout merge commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+
+      - name: Fan out design folder into issues
+        uses: ./.github/actions/design-fanout
+        with:
+          design-dir: ${{ matrix.dir }}
+          repo: ${{ github.repository }}
+          sha: ${{ github.event.pull_request.merge_commit_sha }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
