@@ -25,7 +25,8 @@ Rebase the current branch onto its base and resolve conflicts.
    - Small obvious failure (lint, typo): fix and amend the relevant commit (`git commit --amend --no-edit` after re-staging).
    - Non-trivial failure: stop and ask the user.
 6. Push: `git push --force-with-lease`. Never `git push --force`.
-7. Report: rebased branch, conflict count resolved, verify result.
+7. Background hygiene. A rebase rewrites the branch and may resolve content conflicts, so the PR body can be stale. Spawn the `pr-hygiene` agent via the Task tool with `run_in_background: true`; do not wait for it. The prompt includes the rebased branch SHAs (`git log <base>..HEAD --pretty=%H`) and changed files (`git diff <base>...HEAD --name-only`). The agent self-checks for a PR and handles design PRs (recompose) vs code PRs (diff-based) on its own. Skip only if the rebase was a no-op (step 2 already stops then).
+8. Report: rebased branch, conflict count resolved, verify result, and that hygiene was dispatched.
 
 ## Rules
 
