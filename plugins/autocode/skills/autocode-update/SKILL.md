@@ -50,9 +50,10 @@ Check each file under `$AUTOCODE_CONFIG_DIR/`:
 
 1. **Required-key drift.** For every key the schema marks required, verify it exists in the file matching its scope. Report any missing required key. Offer to scaffold it now using the same prompt logic as `/autocode-setup` step 3 (ask the user, then call `write-settings.sh --scope=<scope>` and merge into the existing file via `jq` rather than overwriting).
 2. **Scope migration.** Read both files; for any key whose namespace does not match the file it sits in (e.g. a `paths.*` key found in `settings.json`, or a `provider.*` key found in `settings.local.json`), move it to the correct file. Report each move. Use `jq` to delete from the wrong file and add to the right one in one pass; never lose values.
-3. **Gitignore.** Verify two ignore rules, each idempotent (append the line if missing). Report only when changed.
+3. **Gitignore and gitattributes.** Verify three rules, each idempotent (append the line if missing). Report only when changed.
    - `settings.local.json` in `$AUTOCODE_CONFIG_DIR/.gitignore`.
    - the transient impl state files (`.impl-context`, `.progress-last-sha`; canonical list in the design-folder spec) in `<repo-root>/.autocode/.gitignore`. Default config dir: same file. Relocated: reconcile only if `<repo-root>/.autocode/` exists; the `impl-start` backstop covers the not-yet-created case.
+   - `.autocode/design/**/PROGRESS.md merge=union` in `<repo-root>/.gitattributes` (always the repo root; `design-folder.md:7-9,42` is the glob justification). Same rule string that `/autocode-setup` writes; idempotent — append if missing, create the file if absent. Report only when changed.
 
 If `settings.local.json` does not exist and no local keys are required, leave it absent (a fresh repo with no local wiring is valid).
 

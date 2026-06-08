@@ -23,7 +23,9 @@ Layout, markers, and labels: `@~/.autocode/autocode/design/design-folder.md`. Th
 
 1. Build the permalink base. `sha=$(git log -1 --format=%H -- <folder>)` (the commit that last touched the folder, i.e. the merge). `repo_url=$(gh repo view --json url --jq .url)`. A file's link is `<repo_url>/blob/<sha>/<repo-relative-path>`. (Permalink shape is GitHub-specific; acceptable while `git-remote` is GitHub.)
 2. Idempotency check. `provider/run.sh issue-tracker issue-epic-list --epic <id>` returns the epic plus any units already created (`[]` if the design has not been fanned out). Parse each row's `description` for markers (`autocode:epic=<id>`, `autocode:unit=<id>/<slug>`). Skip creating anything whose marker is already present; report it as existing.
-3. Create issues. For each issue, build a body temp file: the source file's `## Summary` paragraph, then a blank line, then `Design: <permalink>`, then a blank line, then the HTML-comment marker. Write it with the Write tool, then call the provider.
+3. Backfill seed (multi-unit only). Before the issue-creation loop, check whether `<folder>/PROGRESS.md` exists. If absent, create it with exactly the line `# Progress: <shortname>` (the canonical header; format authority: `design-folder.md:125`; same string that `design-plan` seeds at folder creation). If it already exists, leave it untouched (idempotent: never clobber a `PROGRESS.md` that already carries appended blocks). Skip for flat designs (one unit, no concurrent append; seed is inert).
+
+4. Create issues. For each issue, build a body temp file: the source file's `## Summary` paragraph, then a blank line, then `Design: <permalink>`, then a blank line, then the HTML-comment marker. Write it with the Write tool, then call the provider.
 
    The issue title (`-s`) is the source file's `# <Title>` H1: `DESIGN.md`'s for the epic/flat issue (fall back to `<shortname>`), the unit file's for each unit (fall back to `<slug>`).
 
@@ -33,7 +35,7 @@ Layout, markers, and labels: `@~/.autocode/autocode/design/design-folder.md`. Th
 
    Flat (no `units/`):
    - One issue (if `autocode:epic=<id>` marker absent): body from `DESIGN.md` `## Summary` + permalink + `<!-- autocode:epic=<id> -->`. `provider/run.sh issue-tracker issue-create -t <DESIGN.type> -s "<DESIGN.md H1>" -b "<body>"`. No parent. This issue is both epic and unit.
-4. Report. Default: a table of each issue's role (epic / unit slug), number, and created-or-existing. With `--auto`: emit the success structured result block (`needs_human: false`, `epic_key`, `sub_issues`) in place of the table.
+5. Report. Default: a table of each issue's role (epic / unit slug), number, and created-or-existing. With `--auto`: emit the success structured result block (`needs_human: false`, `epic_key`, `sub_issues`) in place of the table.
 
 ## Rules
 

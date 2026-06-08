@@ -67,10 +67,11 @@ For each invocation, capture stdout and:
 
 Use the Write tool to persist. The script already pretty-prints with two-space indent.
 
-After writing, reconcile two ignore rules. Each is idempotent: create the file with the line if missing, append only when absent.
+After writing, reconcile three rules. Each is idempotent: create the file with the line if missing, append only when absent.
 
 - `settings.local.json` in `$AUTOCODE_CONFIG_DIR/.gitignore` (the config dir).
 - the transient impl state files (`.impl-context`, `.progress-last-sha`; canonical list in the design-folder spec, `~/.autocode/autocode/design/design-folder.md`) in `<repo-root>/.autocode/.gitignore`, the repo-root artifact dir the impl hook and design skills key on (always there, not via `AUTOCODE_CONFIG_DIR`). When the config dir is the default `<repo-root>/.autocode/`, this is the same file and both rules land in it. When it is relocated, only reconcile `<repo-root>/.autocode/.gitignore` if that dir already exists; otherwise leave it to the `impl-start` backstop, which creates the dir on first use.
+- `.autocode/design/**/PROGRESS.md merge=union` in `<repo-root>/.gitattributes` (always the repo root, regardless of `AUTOCODE_CONFIG_DIR`, because `PROGRESS.md` always lives under repo-root `.autocode/`; `design-folder.md:7-9,42` is the glob justification). No "only if the dir exists" guard — the repo root always exists. Report only when changed.
 
 ## Step 4: Scaffold conventions
 
