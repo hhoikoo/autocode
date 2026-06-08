@@ -1,1 +1,4 @@
 settings.local.json
+.impl-context
+.progress-last-sha
+.impl-plan.md
