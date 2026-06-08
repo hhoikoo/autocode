@@ -11,6 +11,7 @@ Each key has exactly one home. No merging, no precedence rules. Scope is determi
 |---|---|---|
 | `provider.*` | shared | `settings.json` |
 | `paths.*` | local | `settings.local.json` |
+| `impl.*` | shared | `settings.json` |
 
 `/autocode-setup` writes `AUTOCODE_CONFIG_DIR` into a Claude Code settings file (`.claude/settings.json` for the in-repo default, `.claude/settings.local.json` otherwise) so readers can locate the config dir from any session.
 
@@ -21,6 +22,7 @@ Each key has exactly one home. No merging, no precedence rules. Scope is determi
 | `provider.issue-tracker` | string | (required) | Which issue-tracker provider scripts to dispatch to. Resolved by `provider/run.sh` as `provider/issue-tracker/<value>/<feature>.sh`. Supported values: `github`. |
 | `provider.git-remote` | string | (required) | Which git-remote provider scripts to dispatch to. Resolved by `provider/run.sh` as `provider/git-remote/<value>/<feature>.sh`. Supported values: `github`. |
 | `provider.ci` | string | value of `provider.git-remote` | Which ci provider scripts to dispatch to. Resolved by `provider/run.sh` as `provider/ci/<value>/<feature>.sh`. When unset or empty, the dispatcher falls back to `provider.git-remote`. Supported values: `github`. |
+| `impl.max-concurrent-units` | integer | `3` | Max concurrently-running per-unit workflows the epic orchestrator launches. Lower on constrained machines. Read by the `impl` orchestrator skill. |
 
 ## Local keys (`settings.local.json`)
 

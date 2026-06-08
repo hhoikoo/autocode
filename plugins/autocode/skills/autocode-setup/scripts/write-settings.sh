@@ -9,7 +9,8 @@ set -euo pipefail
 #   write-settings.sh --scope=shared \
 #     --issue-tracker=<value> \
 #     --git-remote=<value> \
-#     [--ci=<value>]
+#     [--ci=<value>] \
+#     [--max-concurrent-units=<n>]
 #
 #   write-settings.sh --scope=local \
 #     --projects-dir=<path>
@@ -18,6 +19,9 @@ set -euo pipefail
 # dispatcher's fallback to `provider.git-remote` applies. See
 # `autocode/_config/settings-schema.md` for the canonical schema, including
 # which top-level namespaces are shared vs local.
+#
+# `--max-concurrent-units=<n>` is optional (default 3 when omitted): sets the
+# `impl.max-concurrent-units` cap read by the `impl` epic orchestrator skill.
 
 scope=""
 issue_tracker=""
@@ -25,14 +29,16 @@ git_remote=""
 ci=""
 ci_provided=0
 projects_dir=""
+max_concurrent_units="3"
 
 for arg in "$@"; do
   case "${arg}" in
-    --scope=*)         scope="${arg#*=}" ;;
-    --issue-tracker=*) issue_tracker="${arg#*=}" ;;
-    --git-remote=*)    git_remote="${arg#*=}" ;;
-    --ci=*)            ci="${arg#*=}"; ci_provided=1 ;;
-    --projects-dir=*)  projects_dir="${arg#*=}" ;;
+    --scope=*)                scope="${arg#*=}" ;;
+    --issue-tracker=*)        issue_tracker="${arg#*=}" ;;
+    --git-remote=*)           git_remote="${arg#*=}" ;;
+    --ci=*)                   ci="${arg#*=}"; ci_provided=1 ;;
+    --projects-dir=*)         projects_dir="${arg#*=}" ;;
+    --max-concurrent-units=*) max_concurrent_units="${arg#*=}" ;;
     *) echo "write-settings.sh: unknown arg: ${arg}" >&2; exit 1 ;;
   esac
 done
@@ -64,7 +70,8 @@ if [[ "${scope}" == "shared" ]]; then
 
   jq -n \
     --argjson provider "${provider_json}" \
-    '{ provider: $provider }'
+    --argjson mcu "${max_concurrent_units}" \
+    '{ provider: $provider, impl: { "max-concurrent-units": $mcu } }'
 else
   if [[ -z "${projects_dir}" ]]; then
     echo "write-settings.sh: --projects-dir=<path> required for --scope=local" >&2
