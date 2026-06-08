@@ -17,7 +17,7 @@ Layout, markers, and labels: `@~/.autocode/autocode/design/design-folder.md`. Th
 - Under `--auto`, resolution is strict. If the arg is absent, matches no folder, or matches more than one folder, do not prompt and do not glob a default; stop before the step-1 permalink base and step-2 idempotency call and emit `{ needs_human: true, epic_key: "", sub_issues: [], reason: <names the missing/unknown id or the candidate folders> }`. Default mode keeps the most-recent default and the `AskUserQuestion` disambiguation verbatim.
 
    Success-path structured result block (emitted by step 4 under `--auto`):
-   `{ needs_human: false, epic_key: <number>, sub_issues: [{ slug: <slug>, number: <number>, status: "created" | "existing" }], reason: "" }`
+   `{ needs_human: false, epic_key: <key>, sub_issues: [{ slug: <slug>, key: <key>, status: "created" | "existing" }], reason: "" }`
 
 ## Workflow
 
