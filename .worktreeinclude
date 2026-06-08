@@ -1,0 +1,15 @@
+# Gitignored files to copy into new worktrees (gitignore syntax).
+# Only gitignored/untracked files matching these patterns are copied; tracked
+# files always come with the worktree. Applies to --worktree, subagent
+# isolation: worktree, and desktop parallel sessions.
+# Docs: https://code.claude.com/docs/en/worktrees
+
+# Local Claude Code + autocode settings (permissions, env overrides).
+# Per-worktree work breaks without them.
+.claude/settings.local.json
+.autocode/settings.local.json
+
+# Local environment / secrets for tooling, if present.
+.env
+.env.local
+.envrc
