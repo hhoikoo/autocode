@@ -8,8 +8,8 @@ set -euo pipefail
 PASS=0
 FAIL=0
 
-pass() { echo "[PASS] $*" >&2; PASS=$((PASS + 1)); }
-fail() { echo "[FAIL] $*" >&2; FAIL=$((FAIL + 1)); }
+pass() { echo "[PASS] $*" >&2; }
+fail() { echo "[FAIL] $*" >&2; }
 
 GITATTRIBUTES_RULE='.autocode/design/**/PROGRESS.md merge=union'
 PROGRESS_PATH='.autocode/design/0001-x/PROGRESS.md'
@@ -62,9 +62,12 @@ case1_dir="$(mktemp -d)"
     pass "case 1: seeded common ancestor — no conflicts, both blocks present, header once"
   else
     fail "case 1: seeded common ancestor — conflicts=${conflict_count} header_count=${header_count} block-a=${has_block_a} block-b=${has_block_b}"
+    exit 1
   fi
 )
+case1_exit=$?
 rm -rf "${case1_dir}"
+if [[ "${case1_exit}" -eq 0 ]]; then PASS=$((PASS + 1)); else FAIL=$((FAIL + 1)); fi
 
 # ---------------------------------------------------------------------------
 # Case 2: No-rule regression — parallel branches without the merge=union
@@ -108,12 +111,16 @@ case2_dir="$(mktemp -d)"
       pass "case 2: no-rule regression — parallel add/add causes conflict without merge=union rule (exit=${merge_exit}, markers=${conflict_count})"
     else
       fail "case 2: no-rule regression — merge failed (exit=${merge_exit}) but no conflict markers found"
+      exit 1
     fi
   else
     fail "case 2: no-rule regression — expected conflict without merge=union rule, but merge succeeded (should not happen)"
+    exit 1
   fi
 )
+case2_exit=$?
 rm -rf "${case2_dir}"
+if [[ "${case2_exit}" -eq 0 ]]; then PASS=$((PASS + 1)); else FAIL=$((FAIL + 1)); fi
 
 # ---------------------------------------------------------------------------
 # Case 3: Seed idempotency — writing the header-only PROGRESS.md twice keeps
@@ -138,6 +145,7 @@ case3_dir="$(mktemp -d)"
   header_count="$(grep -c "^# Progress:" "${PROGRESS_PATH}" || true)"
   if [[ "${header_count}" -ne 1 ]]; then
     fail "case 3a: seed idempotency — expected 1 header after two seed calls, got ${header_count}"
+    exit 1
   else
     pass "case 3a: seed idempotency — header appears exactly once after two seed calls"
   fi
@@ -158,9 +166,12 @@ case3_dir="$(mktemp -d)"
     pass "case 3b: seed idempotency — existing blocks survive, header count stays 1"
   else
     fail "case 3b: seed idempotency — header_count=${final_header} block-existing=${has_block}"
+    exit 1
   fi
 )
+case3_exit=$?
 rm -rf "${case3_dir}"
+if [[ "${case3_exit}" -eq 0 ]]; then PASS=$((PASS + 1)); else FAIL=$((FAIL + 1)); fi
 
 # ---------------------------------------------------------------------------
 # Summary
