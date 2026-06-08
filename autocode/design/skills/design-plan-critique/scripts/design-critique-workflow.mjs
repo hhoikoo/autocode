@@ -141,7 +141,7 @@ while (iterations < MAX_ITERATIONS) {
   )
   if (designWrite?.file) filesModified.add(designWrite.file)
 
-  if (iterations >= MAX_ITERATIONS && q.questions.length) status = 'cap_reached'
+  if (iterations >= MAX_ITERATIONS && (needsHumanReasons.length > 0 || applicable.length > 0)) status = 'cap_reached'
 }
 
 const needsHuman = needsHumanReasons.length > 0 || status === 'cap_reached'
