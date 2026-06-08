@@ -96,6 +96,9 @@ while (iterations < MAX_ITERATIONS) {
     )))
 
   const usable = resolved.filter(Boolean)
+  for (let i = 0; i < resolved.length; i++) {
+    if (!resolved[i]) needsHumanReasons.push({ question: q.questions[i].question, why: 'resolve agent failed' })
+  }
   for (const r of usable) {
     if (r.unresolved) needsHumanReasons.push({ question: r.question, why: r.why })
     else resolvedCount += 1
@@ -141,7 +144,7 @@ while (iterations < MAX_ITERATIONS) {
   )
   if (designWrite?.file) filesModified.add(designWrite.file)
 
-  if (iterations >= MAX_ITERATIONS && (needsHumanReasons.length > 0 || applicable.length > 0)) status = 'cap_reached'
+  if (iterations >= MAX_ITERATIONS && q.questions.length > 0) status = 'cap_reached'
 }
 
 const needsHuman = needsHumanReasons.length > 0 || status === 'cap_reached'
