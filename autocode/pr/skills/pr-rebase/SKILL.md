@@ -9,7 +9,9 @@ Rebase the current branch onto its base and resolve conflicts.
 ## Workflow
 
 1. Resolve base: re-use the `pr-create` skill's resolve script if available, else `gh repo view --json defaultBranchRef -q .defaultBranchRef.name`.
-2. `git fetch origin <base>`. If `git log HEAD..origin/<base> --oneline` is empty, report "up to date" and stop.
+2. `git fetch origin <base>`. If `git log HEAD..origin/<base> --oneline` is empty:
+   - Default: report "up to date" and stop.
+   - `--auto`: emit `{ rebased: false, conflicts_resolved: 0, verify: "skip", needs_human: false, reason: "" }` and stop without pushing.
 3. `git rebase origin/<base>`.
 4. Conflict resolution loop, per file:
    - `git diff --name-only --diff-filter=U` gets the conflicted set.
