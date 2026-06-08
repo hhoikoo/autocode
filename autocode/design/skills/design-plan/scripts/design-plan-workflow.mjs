@@ -10,12 +10,13 @@ export const meta = {
 }
 
 // args (from the design-plan --auto launcher or the /design orchestrator):
-//   { homeDir, repoRoot, seed }
+//   { homeDir, repoRoot, seed, temp }
 // The workflow owns the entire heavy plan phase: research, synthesis, worktree creation,
-// unit-author fan-out, and the bounded retry. The launcher passes only paths + the seed.
+// unit-author fan-out, and the bounded retry. The launcher passes paths + seed + temp.
 const HOME = args.homeDir
 const REPO = args.repoRoot
 const SEED = String(args.seed || '')
+const TEMP = Boolean(args.temp)
 
 // Path helpers — agents read canonical bodies by absolute path;
 // the skill/agent catalog is not reliably visible to workflow agents.
@@ -141,8 +142,19 @@ const researchSummary = researched
 // ── Phase: Synthesize ────────────────────────────────────────────────────────
 // Compose DESIGN.md, derive shortname, create worktree + branch + id + INDEX.md,
 // decide multi-unit vs flat, assign units (deliverable, depends-on, type, research snippet).
+// When TEMP: write to a mktemp-d folder only; skip worktree/branch/id/INDEX entirely.
 
 phase('Synthesize')
+
+const synthTempInstructions = TEMP
+  ? `3. This is a --temp run. Create a temp folder with \`mktemp -d -t autocode-design\`. ` +
+    `Write DESIGN.md into that folder. Do NOT run git-create-branch, do NOT allocate an id, do NOT touch INDEX.md. ` +
+    `Return worktree:"", id:"" in the result.\n`
+  : `3. Create a worktree+branch by running git-create-branch "docs: design <shortname>" inside ${REPO}. ` +
+    `Allocate <id>: read ${REPO}/.autocode/design/INDEX.md (create with the header from design-folder.md if absent); ` +
+    `id = highest existing id + 1, zero-padded 4 digits (0001 if empty). ` +
+    `Write DESIGN.md into ${REPO}/.autocode/design/<id>-<shortname>/DESIGN.md (create the folder). ` +
+    `Append a row to INDEX.md: <id>, <shortname>, today's UTC date (date -u +%Y-%m-%d), active.\n`
 
 const synth = await agent(
   `Read ${designSkill('design-plan')} for DESIGN.md composition rules and section guidance. ` +
@@ -153,11 +165,7 @@ const synth = await agent(
   `1. Compose the full DESIGN.md text following the section guidance in design-plan/SKILL.md and design-folder.md.\n` +
   `2. Derive <shortname> from the # <Title> H1: kebab-case, lowercase, 2-4 keywords, strip filler (the/a/an/is/of/for/to/in/on/with). ` +
   `Dedup against ${REPO}/.autocode/design/INDEX.md rows and existing ${REPO}/.autocode/design/* folder names: on collision append -2, -3.\n` +
-  `3. Without --temp: create a worktree+branch by running git-create-branch "docs: design <shortname>" inside ${REPO}. ` +
-  `Allocate <id>: read ${REPO}/.autocode/design/INDEX.md (create with the header from design-folder.md if absent); ` +
-  `id = highest existing id + 1, zero-padded 4 digits (0001 if empty). ` +
-  `Write DESIGN.md into ${REPO}/.autocode/design/<id>-<shortname>/DESIGN.md (create the folder). ` +
-  `Append a row to INDEX.md: <id>, <shortname>, today's UTC date (date -u +%Y-%m-%d), active.\n` +
+  synthTempInstructions +
   `4. Decide flat vs multi-unit per design-folder.md rules. ` +
   `If multi-unit, compute per-unit assignments: slug (kebab-case unique), one-line deliverable, depends-on (sibling slugs), issue type, and the relevant research snippet. ` +
   `If flat: no units array, return flat:true.\n` +
@@ -165,6 +173,20 @@ const synth = await agent(
   `Return the SYNTH_SCHEMA object.`,
   { label: 'synthesize', phase: 'Synthesize', model: 'opus', schema: SYNTH_SCHEMA },
 )
+
+// --temp: no worktree created; skip Author/Resolve and return immediately.
+if (TEMP) {
+  const remainingGapsTmp = researched
+    .filter(Boolean)
+    .flatMap((r) => r.gaps_remaining ?? [])
+  return {
+    folder: synth.folder,
+    id: '',
+    units: [],
+    underspecified: [],
+    open_qs: [...synth.open_qs, ...remainingGapsTmp],
+  }
+}
 
 const inWt = makeInWt(synth.worktree)
 

@@ -16,8 +16,8 @@ Layout authority: `@~/.autocode/autocode/design/design-folder.md`. Read it; this
 
    **If `--auto` is present:** skip the in-session steps below and run as a thin launcher:
    - Resolve `homeDir` via `echo "$HOME"` and `repoRoot` via `git rev-parse --show-toplevel`.
-   - Take the seed non-interactively from `$ARGUMENTS` (strip `--auto`; the orchestrator never invokes plan with an empty seed).
-   - Launch the Workflow with `scriptPath: <homeDir>/.autocode/autocode/design/skills/design-plan/scripts/design-plan-workflow.mjs` and `args: { homeDir, repoRoot, seed }`.
+   - Take the seed non-interactively from `$ARGUMENTS` (strip `--auto` and `--temp`; the orchestrator never invokes plan with an empty seed). Set `temp = true` if `--temp` (or `--temporary`) was present.
+   - Launch the Workflow with `scriptPath: <homeDir>/.autocode/autocode/design/skills/design-plan/scripts/design-plan-workflow.mjs` and `args: { homeDir, repoRoot, seed, temp }`.
    - Wait for the workflow to complete, then emit the structured result block:
      ```
      { folder: string, id: string, units: [{ slug, file }], underspecified: [{ slug, file }], open_qs: string[] }
