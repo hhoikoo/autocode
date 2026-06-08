@@ -6,12 +6,23 @@ Layout authority: `@~/.autocode/autocode/design/design-folder.md`. Read it; this
 
 ## Args
 
-- Freeform user description (typical), or
+- `--auto`: run unattended. Thin launcher over `scripts/design-plan-workflow.mjs`. Emits a structured result block; no `AskUserQuestion`.
 - `--temp` (or `--temporary`): write the folder to a temp directory instead of the repo. Same structure; for throwaway critique only.
+- Freeform user description (typical).
 
 ## Workflow
 
-1. Treat `$ARGUMENTS` as the seed. If empty, ask via `AskUserQuestion` for a one-paragraph description.
+1. Treat `$ARGUMENTS` as the seed (strip `--auto` / `--temp` flags). If empty and not `--auto`, ask via `AskUserQuestion` for a one-paragraph description.
+
+   **If `--auto` is present:** skip the in-session steps below and run as a thin launcher:
+   - Resolve `homeDir` via `echo "$HOME"` and `repoRoot` via `git rev-parse --show-toplevel`.
+   - Take the seed non-interactively from `$ARGUMENTS` (strip `--auto`; the orchestrator never invokes plan with an empty seed).
+   - Launch the Workflow with `scriptPath: <homeDir>/.autocode/autocode/design/skills/design-plan/scripts/design-plan-workflow.mjs` and `args: { homeDir, repoRoot, seed }`.
+   - Wait for the workflow to complete, then emit the structured result block:
+     ```
+     { folder: string, id: string, units: [{ slug, file }], underspecified: [{ slug, file }], open_qs: string[] }
+     ```
+   - Surface any `underspecified` units or `open_qs` from the result. Stop; do not proceed to the steps below.
 2. Rough sketch from conversation context only. No research yet. Surface what the model already thinks so gaps are easier to identify.
 3. Gap identification. List every assumption, every unknown library/API, every "I'm guessing X". Decide per gap:
    - dispatch `codebase-researcher` (current repo) in background,
@@ -35,7 +46,7 @@ Layout authority: `@~/.autocode/autocode/design/design-folder.md`. Read it; this
    - Per unit, decide only the assignment, not the prose: `slug` (kebab-case, unique in the folder), one-line deliverable, `depends-on` (sibling slugs), and `type` (an issue type from `$AUTOCODE_CONFIG_DIR/conventions/issue-types.md`, typically `task`, `story`, or `bug`). The `units/<slug>.md` file itself (`## Summary` + `## Implementation`) is authored by the `design-unit-author` agent in step 5, one instance per unit; you do not write unit files inline. The unit-file shape is in `design-folder.md`.
    - Flat designs (single unit): omit the `## Units` section and the `units/` directory. `DESIGN.md` instead carries frontmatter `type: <issue-type>` and its own `## Implementation` section (same shape as a unit). It is its own unit, slug `<shortname>`. The conditional sections (diagram, design decisions, runtime flow) still apply, but stay lean: a one-PR design rarely needs all of them.
 5. Write the folder.
-   - Ask the user for `<shortname>` via `AskUserQuestion`. Kebab-case, lowercase, 2-4 words. (`<id>` is allocated from `INDEX.md` in the without-temp branch below; temp designs have no id.)
+   - Derive `<shortname>` from the `# <Title>` H1 of the composed `DESIGN.md`: kebab-case, lowercase, 2-4 keywords, strip filler words (`the`, `a`, `an`, `is`, `of`, `for`, `to`, `in`, `on`, `with`). Dedup against `INDEX.md` rows and existing `.autocode/design/*` folder names: on collision append `-2`, then `-3`, etc. (`<id>` is allocated from `INDEX.md` in the without-temp branch below; temp designs have no id.)
    - Resolve and create the target folder `<folder>` (with a `units/` subdir when multi-unit):
      - With `--temp`: `dir=$(mktemp -d -t autocode-design)`; `<folder>=$dir`. No worktree (the temp dir is outside the repo), no id, never touch `INDEX.md`.
      - Without `--temp`: the folder is a repo change, so isolate it in a worktree first. Ensure a worktree per `@~/.autocode/autocode/_config/guides/worktree.md`, then delegate `git-create-branch "docs: design <shortname>"` inside it. `repo_root=$(git rev-parse --show-toplevel)` (now the worktree). Allocate `<id>` from the index: read `$repo_root/.autocode/design/INDEX.md` (create it with the header from the design-folder spec if absent); `<id>` = highest id in the table + 1, zero-padded to 4 digits (`0001` if empty). `<folder>=$repo_root/.autocode/design/<id>-<shortname>/`. Append a row to `INDEX.md`: `<id>`, `<shortname>`, today's UTC date (`date -u +%Y-%m-%d`), `active`.

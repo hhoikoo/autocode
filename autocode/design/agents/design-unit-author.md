@@ -38,4 +38,8 @@ The prompt carries:
 
 ## Output
 
-Report the unit file path and a one-line summary of the deliverable. The file is the deliverable, not the message.
+Report these three fields — in prose when invoked inline (manual path), as the typed object when the workflow passes `schema`:
+
+- `underspecified` (boolean): true when the unit cannot name concrete files or the deliverable is too vague to implement.
+- `file` (string): the `units/<slug>.md` path written, or the path it would write when underspecified.
+- `summary` (string): one-line deliverable.
