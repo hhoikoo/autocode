@@ -68,32 +68,53 @@ select_filter='
 
 if [[ -n "${branch}" ]]; then
   # Branch mode: direct head-match.
-  result=$(gh pr list ${repo_args[@]+"${repo_args[@]}"} --head "${branch}" --state all \
-    --json number,state 2>/dev/null) || result="[]"
+  if ! result=$(gh pr list ${repo_args[@]+"${repo_args[@]}"} --head "${branch}" --state all \
+    --json number,state 2>&1); then
+    echo "pr-find.sh: gh pr list failed: ${result}" >&2
+    exit 2
+  fi
   printf '%s' "${result}" | jq "${select_filter}"
 else
+  # Strip a leading '#' so both "42" and "#42" are handled uniformly.
+  issue_key="${issue_key#\#}"
+
   # Issue-key mode: closingIssuesReferences is the precise handle;
   # --search "in:body #<key>" is the accepted simpler path and is eventually consistent.
-  result=$(gh pr list ${repo_args[@]+"${repo_args[@]}"} \
+  if ! result=$(gh pr list ${repo_args[@]+"${repo_args[@]}"} \
     --search "in:body #${issue_key}" \
     --state all \
-    --json number,state,closingIssuesReferences 2>/dev/null) || result="[]"
+    --json number,state,closingIssuesReferences 2>&1); then
+    echo "pr-find.sh: gh pr list failed: ${result}" >&2
+    exit 2
+  fi
 
   # Filter to PRs that genuinely close the issue; fall back to body-search hit if
   # closingIssuesReferences is unavailable.
-  printf '%s' "${result}" | jq --argjson key "${issue_key}" '
-    map(
-      . as $pr |
-      (
-        if (.closingIssuesReferences | length) > 0
-        then (.closingIssuesReferences | any(.number == $key))
-        else true
-        end
+  # For numeric keys compare against .number (integer); for non-numeric (e.g. BA-1234)
+  # compare against a string handle field if present, or fall back to body-search hit.
+  if [[ "${issue_key}" =~ ^[0-9]+$ ]]; then
+    printf '%s' "${result}" | jq --argjson key "${issue_key}" '
+      map(
+        . as $pr |
+        (
+          if (.closingIssuesReferences | length) > 0
+          then (.closingIssuesReferences | any(.number == $key))
+          else true
+          end
+        ) |
+        if . then $pr else empty end
       ) |
-      if . then $pr else empty end
-    ) |
-    ( map(.state |= ascii_downcase) ) as $prs |
-    ( [ $prs[] | select(.state != "closed") ][0] // $prs[0] ) as $p |
-    if $p == null then {} else { number: $p.number, state: $p.state } end
-  '
+      ( map(.state |= ascii_downcase) ) as $prs |
+      ( [ $prs[] | select(.state != "closed") ][0] // $prs[0] ) as $p |
+      if $p == null then {} else { number: $p.number, state: $p.state } end
+    '
+  else
+    # Non-numeric key (e.g. Jira-style): closingIssuesReferences has no numeric match;
+    # accept any body-search hit (closingIssuesReferences unavailable path).
+    printf '%s' "${result}" | jq '
+      ( map(.state |= ascii_downcase) ) as $prs |
+      ( [ $prs[] | select(.state != "closed") ][0] // $prs[0] ) as $p |
+      if $p == null then {} else { number: $p.number, state: $p.state } end
+    '
+  fi
 fi
