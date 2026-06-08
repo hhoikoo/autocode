@@ -150,11 +150,14 @@ const synthTempInstructions = TEMP
   ? `3. This is a --temp run. Create a temp folder with \`mktemp -d -t autocode-design\`. ` +
     `Write DESIGN.md into that folder. Do NOT run git-create-branch, do NOT allocate an id, do NOT touch INDEX.md. ` +
     `Return worktree:"", id:"" in the result.\n`
-  : `3. Create a worktree+branch by running git-create-branch "docs: design <shortname>" inside ${REPO}. ` +
-    `Allocate <id>: read ${REPO}/.autocode/design/INDEX.md (create with the header from design-folder.md if absent); ` +
+  : `3. Ensure a worktree per @~/.autocode/autocode/_config/guides/worktree.md (EnterWorktree / git worktree add under .claude/worktrees/). ` +
+    `Then delegate git-create-branch "docs: design <shortname>" inside that worktree. ` +
+    `Inside the worktree, derive repo_root=$(git rev-parse --show-toplevel). ` +
+    `Allocate <id>: read <repo_root>/.autocode/design/INDEX.md (create with the header from design-folder.md if absent); ` +
     `id = highest existing id + 1, zero-padded 4 digits (0001 if empty). ` +
-    `Write DESIGN.md into ${REPO}/.autocode/design/<id>-<shortname>/DESIGN.md (create the folder). ` +
-    `Append a row to INDEX.md: <id>, <shortname>, today's UTC date (date -u +%Y-%m-%d), active.\n`
+    `Write DESIGN.md into <repo_root>/.autocode/design/<id>-<shortname>/DESIGN.md (create the folder). ` +
+    `Append a row to INDEX.md: <id>, <shortname>, today's UTC date (date -u +%Y-%m-%d), active. ` +
+    `Return the worktree path as SYNTH_SCHEMA.worktree.\n`
 
 const synth = await agent(
   `Read ${designSkill('design-plan')} for DESIGN.md composition rules and section guidance. ` +
@@ -164,7 +167,7 @@ const synth = await agent(
   `Tasks (do all of these):\n` +
   `1. Compose the full DESIGN.md text following the section guidance in design-plan/SKILL.md and design-folder.md.\n` +
   `2. Derive <shortname> from the # <Title> H1: kebab-case, lowercase, 2-4 keywords, strip filler (the/a/an/is/of/for/to/in/on/with). ` +
-  `Dedup against ${REPO}/.autocode/design/INDEX.md rows and existing ${REPO}/.autocode/design/* folder names: on collision append -2, -3.\n` +
+  `Dedup against <repo_root>/.autocode/design/INDEX.md rows and existing <repo_root>/.autocode/design/* folder names: on collision append -2, -3 (use repo_root derived in step 3).\n` +
   synthTempInstructions +
   `4. Decide flat vs multi-unit per design-folder.md rules. ` +
   `If multi-unit, compute per-unit assignments: slug (kebab-case unique), one-line deliverable, depends-on (sibling slugs), issue type, and the relevant research snippet. ` +
