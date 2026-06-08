@@ -1,175 +1,176 @@
----
-type: story
----
-
-# Background workflow for design-plan unit authoring
+# Design lifecycle orchestrator
 
 ## Summary
 
-`design-plan` fans out its per-unit `design-unit-author` agents inline via the Task tool, inside the launching session. The authored unit prose itself stays out of context (the agent returns only a path plus a one-line summary, `design-unit-author.md:41`); what fills the window is the dispatch side and the orchestration: each inline Task prompt embeds the full `DESIGN.md` verbatim, so N units mean N copies of the epic plan in the session's tool-use history, and the underspecified-retry judgment pulls fresh research back into context. This lifts that fan-out into a background Workflow script (`author-units.mjs`), mirroring how `impl` runs its phases via `impl-workflow.mjs`: the launching session writes `DESIGN.md`, then launches the workflow and consumes a single structured result, while the parallel authoring and a bounded research-backed retry run in the background out of context. The same change gives `design-unit-author` a structured return contract (`{ underspecified, file, summary }`) so the workflow can branch on a typed result, and drops the interactive shortname prompt in favor of an auto-derived shortname. Research fan-out (step 3) stays inline: its verbatim findings must reach the planner to compose a sourced plan, and it carries no retry loop.
+`design-plan`, `design-plan-critique`, `design-plan-iterate`, `design-plan-push`, and `design-fanout` are driven one at a time, by hand, each in the launching session, so every phase's research churn, prose authoring, and triage fills the main context window. This epic turns `/design` into a stateless, re-entrant orchestrator for the design half of the lifecycle, the mirror of the impl-epic-orchestrator (`0002-impl-epic-orchestrator`) for the impl half. Given a seed or an in-flight epic, it reconstructs the current stage from disk, the tracker, and the open PR, dispatches the next heavy phase into a background workflow or subagent so the work runs off the main context, consumes a single typed result, and advances one step: plan -> critique -> push -> (iterate on review) -> [merge, user-gated] -> fanout -> hand off to the impl orchestrator. Pre-merge thinking runs automatically; merging is the one step pinned to the main session for explicit user approval; fanout runs automatically post-merge. The original narrow scope of this folder (move the unit-author fan-out into a background workflow, give `design-unit-author` a structured `{ underspecified, file, summary }` contract, auto-derive the shortname) folds in as the plan phase's off-context mechanism. To make each phase dispatchable, `design-plan`, `design-plan-critique`, `design-plan-iterate`, and `design-fanout` gain `--auto` modes with structured returns and a `needs_human` signal, mirroring decision 6 of `0002`. Every phase skill stays individually invocable, so repositories without full automation access can still drive the pieces by hand.
 
 ## Background
 
-`design-plan` step 5 today (`autocode/design/skills/design-plan/SKILL.md:43`) dispatches one `design-unit-author` per unit in a single message, waits, and re-dispatches any unit the author reports underspecified. The author returns unstructured text with an in-band "underspecified" signal (`autocode/design/agents/design-unit-author.md:29`). The impl flow already solved the equivalent problem: `impl` is a thin launcher that sets up the worktree, then runs every phase as a background Workflow (`autocode/impl/skills/impl/scripts/impl-workflow.mjs`), keeping heavy work out of the session (`autocode/impl/CLAUDE.md`).
+The per-phase design skills already exist and each works standalone. What is missing is the layer above them: a single re-entrant command that knows where an epic is in its lifecycle and runs the next phase off-context, gating only where a human decision belongs. A second gap is the surface that layer needs: the phase skills are interactive (they call `AskUserQuestion`) and return prose, neither of which a background phase can consume.
 
-| Piece | Current | Target |
-|---|---|---|
-| Unit-author fan-out | inline Task calls in the session | background Workflow (`author-units.mjs`) |
-| Underspecified retry | re-dispatch inline, judgment in session | bounded research-backed retry in the workflow; genuine gaps surface |
-| `design-unit-author` return | unstructured text, in-band signal | structured `{ underspecified, file, summary }` |
-| Shortname | `AskUserQuestion` prompt | auto-derived from the epic title |
-| Research fan-out | inline Task calls | unchanged (stays inline) |
-
-The shape check (`scripts/check-plugin-shape.sh`) validates SKILL/agent shims, feature-set `CLAUDE.md` presence, and shellchecks `*.sh`. It does not touch `scripts/*.mjs`; the impl precedent confirms workflow scripts live only in the real tree (`plugins/autocode/skills/impl/` carries only `SKILL.md`), referenced by absolute path resolved from `args.homeDir`. So the new script needs no shim and no CI change.
+| Phase | Skill | Current behavior | Gap for orchestration |
+|---|---|---|---|
+| Plan | `autocode/design/skills/design-plan/SKILL.md` | In-session: seed prompt, research fan-out, compose `DESIGN.md`, inline `design-unit-author` fan-out, interactive shortname prompt. | Heavy work + N copies of `DESIGN.md` in dispatch prompts fill context; interactive; prose return. |
+| Critique | `autocode/design/skills/design-plan-critique/SKILL.md` | In-session bounded loop (cap 5): generate questions, dispatch researchers, apply edits in place; `AskUserQuestion` on arg ambiguity and on cap. | Interactive gates; prose 2-3 line return; no `needs_human` contract. |
+| Iterate | `autocode/design/skills/design-plan-iterate/SKILL.md` | Triage design-PR review comments, score, apply, reply, resolve threads. No `AskUserQuestion` gates. | Returns a triage table, not machine-readable; no `--auto` contract. |
+| Push | `autocode/design/skills/design-plan-push/SKILL.md` | Compose the design-PR body, commit, open a lightweight PR. Light. | Already thin; needs only a typed PR-URL return. |
+| Fanout | `autocode/design/skills/design-fanout/SKILL.md` | Post-merge: create epic issue + per-unit sub-issues, idempotent by body marker; `AskUserQuestion` on arg ambiguity. | Interactive on ambiguity; prose table return. |
+| Unit authoring | `autocode/design/agents/design-unit-author.md` | Inline Task fan-out; unstructured prose with in-band "underspecified" signal. | Not a typed control signal; retry bounces to the session. |
+| Fanout (auto) | `.github/workflows/autocreate-design-doc-issue.yml` | Pure-shell GH Action fires on merged PR adding a new `DESIGN.md`; same issue shape as the skill. | Independent of the orchestrator; runs only on the default-branch merge event. |
+| Lifecycle state | `autocode/design/design-folder.md`, `provider/issue-tracker/github/issue-epic-list.sh` | `INDEX.md` status is coarse (`active`/`archived`); fine-grained unit/epic state lives in the tracker via `issue-epic-list`. | No single "where is this epic" query; needs disk + tracker + PR reconstruction. |
 
 ## Architecture
 
-No new packages or deps. One new Workflow script next to its skill, one agent-contract edit, one launcher rewrite, one CLAUDE.md note. The launching session keeps every interactive and narrative step; only the unit-author fan-out crosses into the background.
+The orchestrator runs in the main session and owns no durable state. Each turn it reconstructs the stage from three observable sources (disk, the issue tracker, the open PR), runs exactly one phase off the main context, consumes its typed result, and either advances or stops at a gate. The heavy phases (plan, critique) run as background workflows or subagents; merging is the only step pinned to the main session, because it needs explicit user approval.
 
 ```
-design-plan (launching session)                         author-units.mjs (background Workflow)
---------------------------------                        -------------------------------------
-seed -> rough sketch -> gaps
-  |
-  +-- research fan-out (INLINE Task; verbatim findings)
-  |
-compose epic plan + unit DAG
-auto-derive <shortname>
-enter worktree + branch
-allocate <id> from INDEX.md
-write DESIGN.md (in session)
-  |
-  |   Workflow(scriptPath, args:{ homeDir, workdir,
-  |            folder, designText, units[] })
-  +--------------------------------------------------->  phase Author: parallel(units.map(authorOne))
-  |                                                         authorOne(u):
-  |                                                           r1 = agent(design-unit-author,
-  |                                                                schema AUTHOR_SCHEMA)   // writes units/<slug>.md
-  |                                                           if !r1.underspecified -> return r1
-  |                                                         phase Resolve (bounded, x1):
-  |                                                           f  = agent(codebase-researcher, scoped to u)
-  |                                                           r2 = agent(design-unit-author + f, schema)
-  |                                                           return r2   // may still be underspecified
-  |   { authored:[{slug,file,summary,underspecified}],   <- return
-  +<--  underspecified:[slug], retried:[slug] }
-  |
-inspect return; for each still-underspecified unit:
-  resolve in session (more research / tighter deliverable),
-  re-launch the workflow for those units or hand-author
-  |
-final report
+                    main session: /design orchestrator (stateless, re-entrant)
+                            |                              ^
+  reconstruct stage each turn                              | re-invoked on <task-notification>
+        +-------------------+--------------------+         | (phase workflow completion)
+        |                   |                    |         |
+        v                   v                    v         |
+   disk: folder?       tracker:             open design    |
+   committed?          issue-epic-list      PR? (by branch |
+   units/?             (epic/unit status)   / design-diff) |
+        |                   |                    |         |
+        +-------------------+--------------------+         |
+        |  stage in { none, planned, pushed, in-review,    |
+        |             merged, fanned-out }                 |
+        v                                                  |
+   dispatch next phase OFF-CONTEXT  ----------------------+
+        |
+        |  none      -> plan-phase     (bg)  -> { folder, id, units[], open_qs }
+        |  planned   -> critique-phase (bg, --auto) -> { iterations, changes, needs_human }
+        |  planned   -> push           (light/in-session) -> { pr_url }
+        |  in-review -> iterate        (--auto) -> { applied, needs_human }  [+ wait for merge]
+        |  ====================== USER-GATED MERGE (main session only) ======================
+        |  merged    -> fanout         (--auto) -> { epic_key, sub_issues[] }
+        |  fanned-out-> hand off: invoke `impl --from-design <id>` (the 0002 orchestrator)
+        v
+   surface needs_human cases; present merge-ready PR; report stage + next step
 ```
 
-The author agents write distinct `units/<slug>.md` files concurrently into the same worktree (parallel-safe; the existing inline fan-out already relies on this). The launching session does not receive the unit prose, only path + one-line summary + the underspecified flag per unit.
+Heavy-phase dispatch keeps the research findings, the unit prose, and the triage noise out of the main session: the orchestrator sees only a typed result per phase. Each heavy phase is one background Workflow the main-session orchestrator launches directly (`design-plan-workflow.mjs`, `design-critique-workflow.mjs`); the plan workflow absorbs the unit-author fan-out and the critique workflow absorbs the per-iteration research and apply fan-out, each as `agent()`/`parallel()` calls inside the single workflow (no nested workflow, sidestepping the one-level nesting limit, since the orchestrator itself is a main-session skill, not a Workflow).
 
 ## Design decisions
 
-1. **Move only the unit-author fan-out; leave research fan-out inline.** Two seams exist: research (step 3, before plan composition) and unit-authoring (step 5, after `DESIGN.md`). Only unit-authoring moves. Research findings are folded verbatim into the plan so the planner can write a sourced design (`design-plan` rules: every claim cited; prefer "I don't know" over a guess); the findings must enter the main context regardless of how they were gathered, so a research workflow would save little while risking distillation of the grounding the planner needs. Unit-authoring is the high-value seam: the unit files are the deliverable on disk, the session needs only a summary back, and the underspecified-retry is real multi-step orchestration. Rejected: a second research workflow (low payoff, distillation risk); one workflow straddling both seams (impossible, since in-session `DESIGN.md` authoring sits between them and the workflow runs to completion in the background before returning).
+1. **The outer orchestrator is a main-session skill, not a Workflow.** A Workflow runs to completion in the background and cannot call `AskUserQuestion`, but merging a design PR is an inherent user-gated, outward step; and a Workflow cannot nest another Workflow (the plan phase already launches a fan-out workflow). So `/design` is a thin main-session sequencer that launches each phase off-context and waits, exactly as `impl` launches `impl-workflow` (`autocode/impl/skills/impl/SKILL.md:21-26`). User-confirmed (this session): the outer layer need not be a workflow. Rejected: a pure-workflow orchestrator (cannot gate the merge, cannot nest the plan fan-out).
 
-2. **One workflow, launched at the step-5 seam.** A single Workflow invocation cannot straddle the in-session `DESIGN.md` write. Since only unit-authoring moves, one script suffices, launched after `DESIGN.md` is written. Mirrors `impl`'s single `impl-workflow.mjs`.
+2. **Each heavy phase is a background Workflow the orchestrator launches directly.** Plan and critique are the context-heavy phases (research churn, unit prose, per-iteration question/research/apply). A skill invoked via the Skill tool runs *in* the main session, so invoking a phase skill inline does **not** move its work off-context; only a Workflow or a subagent runs off-context, and a subagent cannot nest the fan-outs these phases need (it can spawn neither a Workflow nor a further subagent). So each heavy phase is a background Workflow script (`design-plan-workflow.mjs`, `design-critique-workflow.mjs`) that the main-session orchestrator launches directly via the Workflow tool, consuming only a typed result, exactly as the `0002` orchestrator launches `impl-workflow.mjs` directly and bypasses the `impl` skill wrapper (research this session: `impl-orchestrator-core.md:49`, `impl-workflow.mjs:26-30` "Subagents cannot spawn subagents, so all fan-out lives here in the workflow runtime"). The workflow's agents *read the existing phase skill and agent bodies* for their heuristics, so the logic stays single-source and the workflow owns only the deterministic loop + fan-out scaffolding. The phase skills (`design-plan`, `design-plan-critique`) become thin launchers over the same workflow for the `--auto` path, and keep their in-session interactive loop for the non-`--auto` manual path (decision 8). This is the user's core requirement: drive the lifecycle without polluting the main context. Once the *whole* plan phase runs off-context, the "research must stay inline so the planner sees it" constraint dissolves: the planner is the off-context workflow now, the findings reach it there, and the main session gets only the summary. User-confirmed (this session): workflow-centric dispatch, mirroring `0002`. Rejected: invoking the `--auto` skills inline in the orchestrator's own context (the skill body runs in the main session, so synthesis, research digestion, and critique churn land in the window the design exists to keep clean); dispatching them as subagents (cannot nest the plan unit-author Workflow or the critique apply fan-out).
 
-3. **Bounded research-backed retry in the workflow, then surface.** On an underspecified unit, the workflow dispatches a `codebase-researcher` scoped to that unit's deliverable, then re-dispatches `design-unit-author` with the findings (cap: one retry per unit). Units still underspecified after the retry are returned in the structured result for the session to resolve (more research or a tighter deliverable) and re-launch or hand-author. Rationale: the common cause of underspecification is the author lacking concrete file detail it could have found; the workflow runtime can spawn researchers (subagents cannot, which is why the fan-out lives in the workflow), so it can manufacture that missing information without bouncing to the session. A genuine planning gap (the deliverable itself is wrong) cannot be fixed without session judgment, so it surfaces. Rejected: pure surface-to-session (bounces the common, auto-resolvable case back into context); blind in-workflow retry with the same inputs (adds no information, only re-rolls non-determinism); unbounded retry (can loop on an impossible unit).
+3. **Stateless, re-entrant stage reconstruction.** The orchestrator stores nothing durable; each turn it recomputes the stage from disk (does `.autocode/design/<id>-<short>/` exist; is it committed; does `units/` exist), the tracker (`issue-epic-list --epic <id>`: `[]` means not fanned out, non-empty means fanned out), and the open design PR (found by branch or by a diff touching only `.autocode/design/**`). `INDEX.md` `status` is a coarse two-state flag (`active`/`archived`, `design-folder.md:30-31`) and does not distinguish the pre-archive stages, so the fine-grained stage comes from disk + tracker + PR, not from `INDEX.md`. Mirrors `0002` decision 1 (the tracker is the single source of truth; a stored queue would drift). Rejected: a persistent orchestrator state file (needs reconciliation against the tracker regardless).
 
-4. **`design-unit-author` returns a structured contract.** `{ underspecified: boolean, file: string, summary: string }`, enforced by the workflow's `agent(..., { schema })` call (forces a StructuredOutput tool call, model retries on mismatch), exactly as `impl-workflow.mjs` enforces `FINDINGS_SCHEMA`/`DECIDE_SCHEMA`. The agent body documents the contract; the schema literal lives in the script (single consumer). The file remains the deliverable; the structured value is the control signal. The agent stays usable inline (a human caller reads the same fields from prose).
+4. **Hybrid gating: auto pre-merge, hard-stop at merge, auto post-merge.** Plan, critique, push, and iterate run automatically (they are reversible, in-tree, and the design PR is itself the review artifact). The merge is the single hard gate: it is outward-facing and irreversible, and a design PR exists precisely so a human reviews and merges it. After merge, fanout runs automatically, then the orchestrator hands off. The orchestrator never merges the design PR on its own (distinct from `impl-archive`, which may self-merge its own archive PR with `--admin`). User-selected (this session): hybrid. Rejected: full-auto self-merge of the design PR (defeats the review the PR exists for); fully gated (a round-trip at every phase boundary the user does not want).
 
-5. **Workflow agents follow agent bodies by absolute path, not `agentType`.** The script's author and researcher agents are default workflow agents told to read `~/.autocode/autocode/design/agents/<name>.md` and follow it (impl's `follow(path, extra)` convention), because the skill/agent catalog is not reliably visible to workflow agents. Paths resolve from `args.homeDir`, never env vars (unexpanded in the workflow runtime). `model: 'opus'` is set per-agent in the script for the author (matching its shim); the per-agent `model` option is safe (the frontmatter-`model: sonnet` rate-limit issue does not apply to the script option).
+5. **`--auto` modes with structured returns and `needs_human` for the phase skills.** `design-plan`, `design-plan-critique`, `design-plan-iterate`, and `design-fanout` gain an `--auto` flag that suppresses their `AskUserQuestion` gates in favor of a structured result block carrying a `needs_human` signal. A background phase cannot call `AskUserQuestion`; the structured stop signal lets the orchestrator branch and surface only the cases that genuinely need a person (an ambiguous arg, a critique question research cannot resolve, the iteration cap reached with open questions). Directly mirrors `0002` decision 6 for `pr-rebase`/`pr-fix-ci`/`pr-review`. This is the enabler for decision 2.
 
-6. **Auto-derive the shortname; drop the prompt.** Step 5 no longer calls `AskUserQuestion` for `<shortname>`. It derives one from the epic `# <Title>`/`## Summary`: kebab-case, lowercase, 2-4 keywords, filler stripped (same reduction `git-create-branch` uses for short-names), then de-duplicated against `INDEX.md` and existing `.autocode/design/*` folders (suffix `-2`, `-3` on collision). Removes a round-trip; the title already encodes the human label. `--temp` is unaffected (it has no id and an ephemeral folder).
+6. **`design-unit-author` returns a structured contract and the plan phase runs a bounded research-backed retry.** `{ underspecified: boolean, file: string, summary: string }`, enforced by the plan-phase workflow's `agent(..., { schema })` call exactly as `impl-workflow.mjs` enforces its schemas. On an underspecified unit, the plan phase dispatches a `codebase-researcher` scoped to that unit, then re-dispatches the author with the findings (cap: one retry per unit); units still underspecified surface in the structured result. The retry's two agents pass the `{ phase: 'Resolve' }` agent option, never a bare `phase('Resolve')` call: the author runs inside `parallel`, where `phase()` mutates shared global state and races other units (Workflow tool contract; `impl-workflow.mjs:139-146` passes `{ phase: 'Review' }` as an option and never calls `phase()` inside a `parallel` map). The agent stays usable inline (a human reads the same three fields from prose). This is the original narrow scope of this folder, retained.
+
+7. **Auto-derive the shortname; drop the prompt.** The plan phase derives `<shortname>` from the epic `# <Title>` (kebab-case, 2-4 keywords, filler stripped, the same reduction `git-create-branch` uses), de-duplicated against `INDEX.md` and existing `.autocode/design/*` folders (suffix `-2`, `-3`). The id, not the shortname, is the durable token. Removes an interactive round-trip, which a background plan phase could not make anyway.
+
+8. **Manual fallback preserved.** The orchestrator is an automation layer over the phase skills, not a replacement. `design-plan`, `design-plan-critique`, `design-plan-iterate`, `design-plan-push`, and `design-fanout` stay individually invocable, and their interactive (non-`--auto`) behavior is unchanged. Mirrors `0002` decision 11. Rationale: in repositories where the user lacks full automation access, hand-driving the documented skills must still work.
+
+9. **Hand off to the impl orchestrator at fanout; do not duplicate it.** `/design` owns the design half and stops once issues exist. The implementation half (parallel per-unit launch, monitor, cascade, archive) is owned by `0002-impl-epic-orchestrator`; `/design` invokes `impl --from-design <id>` (or, when that orchestrator is not present, suggests it and stops). Rationale: the two orchestrators meet at the fanout boundary; merging their concerns would couple the design and impl lifecycles and duplicate `0002`.
+
+10. **Design-PR detection without an issue.** Pre-fanout there is no issue key, so the orchestrator cannot use `0002`'s issue-key `pr-find`. It detects the design PR by the design branch (`docs/design-<short>` for the epic) or, as a fallback, by an open PR whose diff touches only `.autocode/design/**` (the design-PR detection rule in `autocode/design/design-pr-body.md`). No `pr-find`/`pr-list` provider script exists today (a known gap); the orchestrator uses `provider/run.sh git-remote pr-view` from the worktree, or a direct `gh pr list --head <branch>`, and the design notes the missing provider abstraction. Rejected: reusing `0002`'s issue-key `pr-find` (no issue exists at this stage).
 
 ## Runtime flow
 
-1. Steps 1-4 of `design-plan` run unchanged in the session: seed, rough sketch, gap identification with inline research fan-out, plan composition and unit decomposition.
-2. Step 5 (non-temp): auto-derive `<shortname>` from the title; enter the worktree; `git-create-branch`; allocate `<id>` from `INDEX.md`; create `<folder>` and `<folder>/units/`; write `DESIGN.md` in the session; append the `INDEX.md` row.
-3. Resolve workflow args: `homeDir` (`echo "$HOME"`), `workdir` (the worktree root for inspection; the original repo root under `--temp`), `folder` (absolute design folder), `designText` (the `DESIGN.md` just written), `units` (one entry per unit: `slug`, `deliverable`, `dependsOn`, `type`, and the verbatim research findings relevant to it).
-4. Launch the Workflow with `scriptPath = <homeDir>/.autocode/autocode/design/skills/design-plan/scripts/author-units.mjs` and those `args`. The session waits; authoring and retry run in the background.
-5. The workflow authors every unit in parallel; each underspecified unit gets one research-backed retry; it returns `{ authored, underspecified, retried }`.
-6. The session consumes the result. If `underspecified` is empty, it proceeds to the final report (worktree, branch, folder, `<id>`; suggest `/design-plan-critique <id>` or `/design-plan-push <id>`). Otherwise it resolves each surfaced unit (more research or a tighter deliverable) and re-launches the workflow for those slugs or hand-authors them, then reports.
-7. Flat single-unit designs are unchanged: `design-plan` writes `DESIGN.md` itself, no fan-out, no workflow.
+1. Invoke `/design <seed>` (new epic) or `/design <id|shortname>` (resume an in-flight epic). With a seed and no matching folder, the stage is `none`.
+2. Reconstruct the stage:
+   - `none`: no design folder for this seed/id.
+   - `planned`: folder + `DESIGN.md` exist (committed or uncommitted in a worktree); no open design PR.
+   - `pushed`/`in-review`: an open design PR exists for the folder's branch.
+   - `merged`: the design PR merged (folder committed on the default branch) and `issue-epic-list --epic <id>` returns `[]`.
+   - `fanned-out`: `issue-epic-list --epic <id>` returns a non-empty array.
+3. `none` -> launch the plan workflow `design-plan-workflow.mjs` (off-context): it interprets the seed, fans out research, composes `DESIGN.md`, auto-derives the shortname, creates the worktree + branch + `<id>` + `INDEX.md` row, and authors the unit files via the bounded research-backed fan-out, returning `{ folder, id, units[], underspecified[], open_qs }`. Surface any `underspecified`/`open_qs`; otherwise continue.
+4. `planned` -> launch the critique workflow `design-critique-workflow.mjs` (off-context, bounded to 5 iterations): it interrogates and edits the design in place, returning `{ iterations_run, files_modified, needs_human, needs_human_reasons[] }`. If `needs_human`, surface the open questions and stop; else continue to push.
+5. `planned` (critique clean) -> run push (`design-plan-push`; light, may stay in-session): commit the folder, compose the design-PR body, open the lightweight PR, returning `{ pr_url, branch }`. Stage becomes `in-review`.
+6. `in-review` -> if the PR has review comments, run iterate (`design-plan-iterate --auto`): triage and apply, returning `{ applied, replied, needs_human }`. Then present the PR for the user to review and merge. This is the hard gate: the orchestrator waits for the user to merge on the host; it never merges the design PR itself.
+7. `merged` -> run fanout (`design-fanout --auto`): create the epic issue + per-unit sub-issues (idempotent), returning `{ epic_key, sub_issues[] }`.
+8. `fanned-out` -> hand off: invoke `impl --from-design <id>` (the impl orchestrator) when present, else report the epic + sub-issues and suggest it. `/design`'s responsibility ends here.
+9. Report the stage reached, the typed result of the phase run, and the next step.
 
-## Implementation
-
-Deliverable: `design-plan`'s unit-author fan-out runs as a background Workflow, `design-unit-author` returns a structured contract, and the shortname is auto-derived. One PR.
-
-Files:
-
-- `autocode/design/skills/design-plan/scripts/author-units.mjs` (new). The Workflow script. Mirrors `impl-workflow.mjs` structure:
-  - `export const meta` with `name: 'author-units'`, a description, and `phases: [{ title: 'Author', model: 'opus' }, { title: 'Resolve' }]`.
-  - Reads `args`: `homeDir`, `workdir`, `folder`, `designText`, `units` (array of `{ slug, deliverable, dependsOn, type, research }`). No interactive input; all args resolved by the launcher.
-  - Helpers mirroring impl: `agentBody(name) => ${HOME}/.autocode/autocode/design/agents/${name}.md`, `follow(path, extra)`, `inDir = "Work in ${workdir}: cd into it before inspecting the codebase. "`.
-  - `AUTHOR_SCHEMA = { type:'object', additionalProperties:false, properties:{ underspecified:{type:'boolean'}, file:{type:'string'}, summary:{type:'string'} }, required:['underspecified','file','summary'] }`.
-  - `MAX_RETRY = 1`.
-  - `authorOne(u)`: dispatch `design-unit-author` (read its body, `phase:'Author'`, `model:'opus'`, `schema: AUTHOR_SCHEMA`) with a prompt carrying `folder`, `workdir`, `designText` verbatim, `u`'s assignment, and `u.research` verbatim. If `!underspecified`, return `{ slug, ...result, retried:false }`. Else the bounded retry, both calls tagged with the `{ phase: 'Resolve' }` agent option (never a bare `phase('Resolve')` call): `authorOne` runs inside `parallel`, and `phase()` mutates global state shared across all concurrent units, so a bare call races other units' phase grouping. Dispatch `codebase-researcher` (`{ phase: 'Resolve' }`, its own default model; read-only by contract) scoped to `u.deliverable` plus the author's `summary` (the missing-files question), then re-dispatch the author (`{ phase: 'Resolve', model: 'opus', schema: AUTHOR_SCHEMA }`) with the extra findings appended; return the second result with `retried:true`. Mirrors `impl-workflow.mjs`, where the in-`parallel` review agents pass `{ phase: 'Review' }` as an option and no `phase()` call appears inside a `parallel` map.
-  - Top level: `phase('Author')`; `const authored = (await parallel(units.map(u => () => authorOne(u)))).filter(Boolean)`; `return { authored, underspecified: authored.filter(a => a.underspecified).map(a => a.slug), retried: authored.filter(a => a.retried).map(a => a.slug) }`.
-  - Plain JS only; no `Date.now()`/`Math.random()`/argless `new Date()`.
-- `autocode/design/agents/design-unit-author.md` (edit). Replace the in-band underspecified note (line 29) and the Output section (lines 39-41) with the structured contract: report `underspecified` (boolean), `file` (the `units/<slug>.md` path written, or the intended path when underspecified), and `summary` (the one-line deliverable summary, or the reason it is underspecified and what is missing). Keep "the file is the deliverable, not the message." No frontmatter (body-only real file).
-- `autocode/design/skills/design-plan/SKILL.md` (edit). Step 5:
-  - Drop the `AskUserQuestion` for `<shortname>`; auto-derive it (decision 6) and state the derivation and collision rule inline.
-  - Replace the inline multi-unit fan-out paragraph (line 43) with: write `DESIGN.md`, resolve the workflow args (decision 5, runtime step 3), launch the Workflow (`scriptPath` + `args`), consume `{ authored, underspecified, retried }`, and resolve any surfaced underspecified unit in-session then re-launch or hand-author.
-  - Leave the `--temp` and flat branches behaving as before (flat writes `DESIGN.md` inline, no workflow; `--temp` passes `workdir` = original repo root and a `folder` outside any worktree).
-- `autocode/design/CLAUDE.md` (edit). One line noting `design-plan` launches `author-units.mjs` (a background Workflow) for unit-author fan-out, mirroring impl, with the script living next to the skill under `scripts/`.
-
-No shim changes: no new skill or agent names; the `.mjs` script is not shimmed (shape check ignores it). No CI change.
-
-Public interface (workflow args contract):
-
-```
-args = {
-  homeDir:   string,   // echo "$HOME"
-  workdir:   string,   // worktree root (non-temp) | original repo root (--temp)
-  folder:    string,   // absolute design folder; units written to <folder>/units/<slug>.md
-  designText: string,  // full DESIGN.md text, verbatim, passed to every author
-  units: [ { slug, deliverable, dependsOn: [slug...], type, research } ]
-}
-return = { authored: [ { slug, file, summary, underspecified, retried } ],
-           underspecified: [slug...], retried: [slug...] }
-```
+Flat single-unit designs collapse the plan phase to a `DESIGN.md`-only write with no unit fan-out; critique, push, and fanout still run (fanout creates one issue). `--temp` plans are a single throwaway plan with no worktree, id, PR, or fanout: the orchestrator refuses to advance a `--temp` folder past plan and points the user at `/design-plan-critique <dir>`.
 
 ## Edge cases and error handling
 
-- All units well-specified: `underspecified` is empty; the session reports directly. The common path.
-- A unit still underspecified after the one retry: surfaced in `underspecified`; the session resolves and re-launches for those slugs or hand-authors. Not an error.
-- An author agent dies on a terminal error: `parallel` yields `null` for it; `.filter(Boolean)` drops it, and its slug is absent from `authored`. The session detects the missing slug (compare against the units it sent) and re-launches or hand-authors that one.
-- The whole workflow fails (the Workflow tool errors out, not a single agent dying): the session gets no structured result, but `DESIGN.md`, the `INDEX.md` row, and the `<id>` are already written and durable in the worktree. `units/` is empty or partial. The session treats every sent slug as missing and re-launches the workflow, or hand-authors the units; no rollback of the id or the folder. The id, not the run, is the durable token.
-- `--temp`: no worktree, no id, no `INDEX.md`; `workdir` = the original repo root for codebase inspection, `folder` = the temp dir. Authors still inspect the real repo for file shapes.
-- Single-unit (flat) design: no workflow launched; `design-plan` writes `DESIGN.md` itself.
-- Shortname collision with an `INDEX.md` row or an existing `.autocode/design/*` folder: append `-2`, `-3`. The id (not the shortname) is the durable token, so a suffixed shortname is harmless.
+- `none` with an ambiguous id/shortname match: the orchestrator (main session) may `AskUserQuestion` to disambiguate before dispatching; the dispatched phases never do.
+- Plan returns `underspecified` units or `open_qs`: surface them; the user resolves (more research or a tighter deliverable) and re-invokes `/design <id>`, which re-enters at the `planned` stage.
+- Critique returns `needs_human`: surface the unresolved questions; stop. Re-invoking `/design <id>` re-runs critique (idempotent: it appends to the Critique log) or proceeds to push once the user clears the questions.
+- Design PR has unresolved or contested review comments: iterate applies the high-confidence ones and surfaces the rest; the merge gate stays the user's.
+- Merge gate: the orchestrator never merges the design PR. It waits; on re-invocation after the user merges, it detects `merged` and runs fanout.
+- Fanout is partially complete (some issues exist): `design-fanout` is idempotent by body marker (`design-fanout/SKILL.md:20-21`); re-running creates only the missing issues. The GH Action (`autocreate-design-doc-issue.yml`) may have already fanned out on merge; the orchestrator detects `fanned-out` via `issue-epic-list` and skips straight to hand-off.
+- The impl orchestrator (`0002`) is not merged/available: hand-off degrades to reporting the epic + sub-issues and suggesting `impl --from-design <id>`; no failure.
+- `--temp`: no worktree, id, PR, or fanout; the orchestrator runs only the plan phase and stops.
+- Flat single-unit design: no unit fan-out in plan; fanout creates a single issue with no sub-issues; no impl-orchestrator cascade (one unit).
 
 ## Testing strategy
 
 Markdown-and-script change, no app build. Verification:
 
-- `scripts/check-plugin-shape.sh` passes (no new shims; real files carry no frontmatter; every feature-set has `CLAUDE.md`). This is the CI gate.
-- Static read of `author-units.mjs` against `impl-workflow.mjs`: same helper shape, `args.homeDir` path resolution, `parallel` fan-out, `schema`-typed returns, no forbidden globals.
-- Dry exercise: run `/design-plan` on a small multi-unit seed in a scratch repo; confirm no shortname prompt, the workflow launches after `DESIGN.md`, unit files land under `units/`, and the final report carries the structured tally. Confirm an intentionally vague unit surfaces in `underspecified` after one retry.
-- Confirm `design-unit-author` still works inline (invoke it directly) and reports the three contract fields in prose.
+- `scripts/check-plugin-shape.sh` passes (no new shims that restate definitions; real files carry no frontmatter; every feature-set has `CLAUDE.md`; `*.sh` shellcheck clean). This is the CI gate.
+- `--auto` skill modes: dry-run each of `design-plan`, `design-plan-critique`, `design-plan-iterate`, `design-fanout` with `--auto` on a scratch design and assert the structured result block, including `needs_human` on a forced ambiguous arg and (critique) an intentionally vague unit that survives the cap.
+- Static read of any new workflow script against `impl-workflow.mjs`: same helper shape, `args.homeDir` path resolution, `parallel` fan-out, `schema`-typed returns, `{ phase }` option inside `parallel` (never a bare `phase()`), no forbidden globals.
+- Orchestrator skill: validated by `scripts/check-plugin-shape.sh` plus a manual end-to-end dry run on a small two-unit seed, exercising stage reconstruction at each point (`none` -> `planned` -> `in-review` -> `merged` -> `fanned-out`), the merge gate (the orchestrator stops and does not merge), and the hand-off call. No automated harness exists for full skill runs; the dry run is the acceptance gate.
+- Confirm `design-unit-author` still works inline (invoke it directly) and reports the three contract fields in prose; confirm every phase skill's non-`--auto` interactive path is unchanged (manual fallback).
 
 ## Alternatives considered
 
-- **Multi-unit decomposition of this epic** (split into agent-contract, workflow-script, launcher units). Rejected: the script, the contract it consumes, and the launcher that feeds it are tightly coupled and only coherent reviewed together (does the launcher pass what the script expects? does the schema match the author's contract?). Splitting would merge dead code (a workflow nothing invokes) ahead of its wiring and make review harder. Flat single-unit fits the modest, cohesive scope.
-- **Move research fan-out too** (one or two extra workflows). Rejected: see decision 1.
-- **Move `design-plan-critique` and `design-plan-iterate` into workflows.** Deferred, out of scope. `critique`'s loop interleaves `AskUserQuestion` user-asks with research dispatch every iteration (`design-plan-critique/SKILL.md:20-26`); not a clean fan-out without restructuring to pre-collect questions. `iterate`'s only fan-out is the apply step (one subagent per affected unit, often one), with triage staying in-session; a workflow there is low payoff for a second script and schema. Both stay in-skill and individually user-invocable. Revisit if either grows a real multi-round fan-out.
+- **Pure-workflow orchestrator** (no main-session loop): rejected; a workflow cannot gate the user merge, cannot nest the plan fan-out, and cannot `AskUserQuestion` to disambiguate (decision 1).
+- **One mega-skill that runs every phase inline in the launching session**: rejected; it fills the main context with exactly the research/prose/triage noise this epic exists to remove (decision 2).
+- **A non-re-entrant `/design-all` that chains the phases once, top to bottom**: rejected; it cannot resume a half-finished epic (e.g. after the user merges out of band, or after a `needs_human` stop), and the merge gate forces a resume boundary regardless (decision 3).
+- **Keep the narrow original scope** (only move the unit-author fan-out to a background workflow): superseded; the user asked for the full orchestrator, and the fan-out is one phase of it. The original work is retained as decision 6 and folded into the plan unit.
+- **Move `design-fanout` entirely into the orchestrator**: rejected; the GH Action and the standalone skill must keep producing the identical issue shape for the manual path, so fanout stays a skill the orchestrator invokes (decisions 8, 9).
 
 ## Sources
 
-- `autocode/design/skills/design-plan/SKILL.md:14-49` — current workflow; step 5 inline fan-out (`:43`) and shortname prompt (`:38`).
-- `autocode/design/agents/design-unit-author.md:29,39-41` — current in-band underspecified signal and unstructured output.
-- `autocode/design/agents/codebase-researcher.md` — researcher contract used in the retry.
-- `autocode/impl/skills/impl/scripts/impl-workflow.mjs` — workflow-script template: `meta`, `args.homeDir`, `follow`, `parallel`, schema-typed `agent` returns, plain-JS constraints.
-- `autocode/impl/skills/impl/SKILL.md:21-26` — how a thin launcher resolves args and calls the Workflow tool (`scriptPath` + `args`).
-- `autocode/impl/CLAUDE.md` — "the workflow does the fan-out the per-phase skills cannot (subagents cannot spawn subagents); heavy work stays out of the launching session."
-- `autocode/design/design-folder.md:47-51,70-88` — flat-vs-multi rule; unit-file shape.
-- `scripts/check-plugin-shape.sh:31-124` — shape check covers shims, feature-set `CLAUDE.md`, and `*.sh`; not `*.mjs`. `plugins/autocode/skills/impl/` (only `SKILL.md`) confirms workflow scripts are not shimmed.
-- `autocode/_config/guides/worktree.md` — `EnterWorktree` then `git-create-branch`; the fan-out writes into the same worktree.
-- `autocode/_config/conventions/issue-types.md` — `story` = single-PR user-visible deliverable (the `/design-plan` behavior change).
-- `git-create-branch/SKILL.md:39` — kebab short-name reduction reused for shortname derivation.
-- User decision (this session): also drop the interactive shortname prompt; auto-pick a reasonable one.
+- `autocode/design/skills/design-plan/SKILL.md:14-49` — current plan workflow; inline unit fan-out (`:43`), interactive shortname (`:38`), `INDEX.md` `active` row (`:41`). Read this session.
+- `autocode/design/skills/design-plan-critique/SKILL.md:11-12,21-26,37` — critique loop, the two `AskUserQuestion` gates (arg ambiguity, cap), the 5-iteration cap, the 2-3 line prose return. Research this session.
+- `autocode/design/skills/design-plan-iterate/SKILL.md:1-2,6,19-46` — design-PR comment triage between push and merge; no `AskUserQuestion` gates; outputs a triage table (not machine-readable). Research this session.
+- `autocode/design/skills/design-plan-push/SKILL.md` — lightweight design-PR open; composes the body from `design-pr-body.md`; the design folder is uncommitted in the worktree until this runs. Read prior turns.
+- `autocode/design/skills/design-fanout/SKILL.md:9,13-31,39` — post-merge epic + sub-issue creation, idempotent by body marker, `AskUserQuestion` on arg ambiguity, prose table return, "run only after the design PR merged". Research this session.
+- `.github/workflows/autocreate-design-doc-issue.yml:24-107` and `.github/actions/design-fanout/action.yml:61-81` — the pure-shell GH Action that fans out on a merged PR adding a new `DESIGN.md`; same issue shape as the skill. Research this session.
+- `autocode/design/agents/design-unit-author.md:29,39-41` — current in-band underspecified signal and unstructured output, replaced by the structured contract. Read this session.
+- `autocode/design/agents/codebase-researcher.md:71` — read-only researcher used in the plan-phase retry. Read this session.
+- `autocode/design/design-folder.md:7-9,18-31,73-78,111-119,152-179` — folder layout, `INDEX.md` schema and the `active`/`archived` two-state status, unit frontmatter and DAG, `issue-epic-list` discovery, four-state lifecycle, epic-done = folder moved. Research this session.
+- `provider/issue-tracker/github/issue-epic-list.sh:13-15,53-84,88-110` — `[]` means not yet fanned out; non-empty means fanned out; per-unit `{key,summary,type,status,parent}` with status mapping. Research this session.
+- `provider/git-remote/github/pr-view.sh:8` — raw `gh pr view` passthrough; no `pr-find`/`pr-list` provider script exists (design-PR detection gap). Research this session.
+- `autocode/design/design-pr-body.md` — design-PR detection rule (diff touches only `.autocode/design/**`); used for branchless PR detection. Read prior turns.
+- `autocode/impl/skills/impl/SKILL.md:21-26`, `autocode/impl/skills/impl/scripts/impl-workflow.mjs`, `autocode/impl/CLAUDE.md` — thin-launcher pattern, the Workflow call contract, `args.homeDir` path resolution, `parallel` fan-out, `{ phase }` option inside `parallel`, schema-typed returns, plain-JS constraints. Read this session.
+- `.autocode/design/0002-impl-epic-orchestrator/DESIGN.md` — the impl-half orchestrator this epic mirrors: stateless re-entrancy (decision 1), `--auto`+`needs_human` modes (decision 6), manual fallback (decision 11), user-gated merge, hand-off boundary. Read this session.
+- `autocode/impl/skills/impl-archive/SKILL.md:22` — `impl-archive` flips `INDEX.md` to `archived` and may self-merge its own PR with `--admin` (contrast: `/design` never self-merges the design PR). Research this session.
+- `git-create-branch/SKILL.md:34,39` — the kebab short-name reduction reused for shortname derivation; branch shortname is a non-reproducible slug. Read this session.
+- Claude Code `Workflow` tool contract (this session's tool definition) — the outer orchestrator cannot be a workflow (no `AskUserQuestion`, one-level nesting); the `{ phase }` option avoids the global `phase()` race inside `parallel`.
+- User decisions (this session): rescope this folder into the design orchestrator mirroring `0002`; outer layer need not be a workflow; phases run off the main context; hybrid autonomy (auto pre-merge, user-gated merge, auto fanout); also drop the interactive shortname prompt.
+- `impl-orchestrator-core.md:49`, `impl-workflow.mjs:26-30,30,139-146` — the `0002` orchestrator launches `impl-workflow.mjs` directly (bypassing the `impl` skill), all fan-out lives in the workflow ("Subagents cannot spawn subagents"), the `inWt` helper, and `{ phase }` passed as an option inside `parallel`. Researched this critique session; grounds decision 2's workflow-centric dispatch.
+- `design-plan/SKILL.md:38,41,43`, `design-plan-push/SKILL.md:22` — worktree + branch + `<id>` + `INDEX.md` creation is a plan-phase responsibility today (`design-plan` delegates `git-create-branch` inside the worktree); `design-plan-push` only re-creates them as a fresh-session fallback. Researched this critique session.
+- `impl` SKILL.md:9, `0002` DESIGN.md:84 — the hand-off entry interface `impl --from-design <id|shortname>` is the real `0002` epic-mode entry point. Researched this critique session; confirms decision 9 / runtime-flow step 8.
+- User decision (this critique session): workflow-centric off-context dispatch (each heavy phase is a background Workflow the orchestrator launches directly; the `--auto` phase skills are thin launchers over the same workflow; non-`--auto` interactive paths unchanged).
 
 ## Critique log
 
-Iteration 1:
-- Q: Does `phase('Resolve')` called inside the `parallel(units.map(...))` map (Implementation `authorOne`) race other concurrent units? A: Yes. The Workflow contract states `phase()` mutates global state and warns to use the `{ phase }` agent option inside `parallel`/`pipeline`; `impl-workflow.mjs` confirms the pattern (in-`parallel` review agents pass `{ phase: 'Review' }`, no bare `phase()` inside a map). Rewrote `authorOne` to tag both Resolve calls with the `{ phase: 'Resolve' }` option. Source: Workflow tool contract; `impl-workflow.mjs:139-146`.
-- Q: Is the stated problem (unit prose fills context) accurate? A: No. `design-unit-author.md:41` returns only path + one-line summary, so prose never enters context today. The real cost is N inline Task prompts each embedding full `DESIGN.md` plus the in-session retry research. Reframed the Summary. Source: `design-unit-author.md:41`; `design-plan/SKILL.md:43`.
-- Q: What model and read-only posture for the Resolve-phase agents? A: Re-dispatched author pinned `model: 'opus'` + `schema: AUTHOR_SCHEMA` (matches the Author phase); `codebase-researcher` runs at its own default and is read-only by its own contract (`codebase-researcher.md:71`). Folded into the `authorOne` spec. Source: `codebase-researcher.md:71`.
-- Q: Is whole-workflow failure (Workflow tool error, distinct from a single agent dying) handled? A: It was not. Added an edge case: `DESIGN.md`/`INDEX.md` row/`<id>` are already durable; the session re-launches or hand-authors, no id rollback. Source: existing edge-case list; the id-as-durable-token rule (decision 6, edge cases).
-</content>
-</invoke>
+Iteration 1 (this session):
+
+- Q: How does the orchestrator run plan and critique "off-context" when a skill invoked via the Skill tool runs *in* the main session, and a subagent cannot nest the fan-outs these phases need? -> Researched `0002`'s dispatch (`impl-orchestrator-core.md:49`, `impl-workflow.mjs:26-30`): the main-session orchestrator launches `impl-workflow.mjs` directly. User chose workflow-centric: each heavy phase is a background Workflow (`design-plan-workflow.mjs`, `design-critique-workflow.mjs`) the orchestrator launches directly; the `--auto` skills become thin launchers; non-`--auto` interactive paths unchanged. Applied to decision 2, the architecture prose, the unit table, runtime steps 3-4, and both phase units.
+- Q: Does `design-critique-auto` deliver an off-context mechanism? -> No; it added only an `--auto` flag to an in-session loop. Resolved: added `design-critique-workflow.mjs` owning the loop + apply fan-out; its agents read the `design-plan-critique` body so heuristics stay single-source.
+- Q: Is "create worktree + branch" a plan-phase or push-phase responsibility (units disagreed)? -> Plan-phase (`design-plan/SKILL.md:41`; push is a fallback, `design-plan-push/SKILL.md:22`). Fixed the misleading "branch `design-plan-push` creates" parenthetical in `design-orchestrator-core` and moved worktree/branch/id/`INDEX.md` creation into the plan workflow's `Synthesize` phase.
+- Q: Is the hand-off `impl --from-design <id>` a real `0002` interface? -> Yes (`impl` SKILL.md:9, `0002` DESIGN.md:84; also accepts `<shortname>`). No change; noted in Sources.
+- Q: Does `codebase-researcher` exist at the cited path? -> Yes (`autocode/design/agents/codebase-researcher.md`). No change.
+
+Iteration 2 (consistency pass over the revised design):
+
+- Q: Does the revised plan unit keep the interactive shortname prompt in non-`--auto` mode, contradicting decision 7 (drop the prompt in *both* modes)? -> Yes, a self-introduced contradiction. Fixed: non-`--auto` auto-derives the shortname too; the seed prompt is the only `AskUserQuestion` the non-`--auto` path keeps.
+- Q: The plan workflow has no `args.worktree` (unlike `impl-workflow.mjs`), since `Synthesize` creates the worktree mid-run; how does `inWt` get the path? -> Clarified in the plan unit: `inWt` is built from the worktree path `Synthesize` returns and is available only to the `Author`/`Resolve` phases after it.
+- No new design-level questions; the revised design is internally consistent. Loop converged.
+
+## Units
+
+| Unit | Deliverable | depends-on |
+|---|---|---|
+| [design-plan-orchestrator-ready](units/design-plan-orchestrator-ready.md) | `design-plan-workflow.mjs`: the whole plan phase off-context (research, `DESIGN.md` synthesis, worktree/branch/id/`INDEX.md`, unit-author fan-out with the structured `design-unit-author` contract + bounded research-backed retry); `design-plan --auto` becomes a thin launcher over it with a structured return + auto-derived shortname | none |
+| [design-critique-auto](units/design-critique-auto.md) | `design-critique-workflow.mjs`: the critique loop off-context (question generation, researcher fan-out, apply fan-out, cap 5); `design-plan-critique --auto` becomes a thin launcher over it with a structured return + `needs_human` signal; non-`--auto` keeps its in-session interactive loop | none |
+| [design-iterate-auto](units/design-iterate-auto.md) | `design-plan-iterate --auto` with a structured machine-readable return | none |
+| [design-fanout-auto](units/design-fanout-auto.md) | `design-fanout --auto` with a structured return (epic key + sub-issue keys), suppressing the ambiguity gate | none |
+| [design-orchestrator-core](units/design-orchestrator-core.md) | The `/design` orchestrator skill: re-entrant stage reconstruction, off-context phase dispatch, hybrid gates with the user-gated merge, hand-off to the impl orchestrator, manual fallback | design-plan-orchestrator-ready, design-critique-auto, design-iterate-auto, design-fanout-auto |
