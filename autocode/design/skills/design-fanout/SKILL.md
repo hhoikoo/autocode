@@ -6,13 +6,18 @@ Layout, markers, and labels: `@~/.autocode/autocode/design/design-folder.md`. Th
 
 ## Args
 
-`<id | shortname>` (the design folder prefix or suffix). Default: the most recent folder under `.autocode/design/`. On ambiguity, ask via `AskUserQuestion`.
+- `<id | shortname>`: the design folder prefix or suffix. Default: the most recent folder under `.autocode/design/`. On ambiguity, ask via `AskUserQuestion`.
+- `--auto`: run unattended (no `AskUserQuestion`); the id is required (no implicit most-recent); an absent, unknown, or ambiguous arg returns `needs_human: true` and creates nothing; the final report is the structured result block (below) in place of the step-4 prose table. Interactive behavior is unchanged when `--auto` is absent.
 
 ## Discovery
 
 - Glob `.autocode/design/<id>-*` or `*-<shortname>`. Resolve to one folder; read its `DESIGN.md` and any `units/*.md`.
 - Derive `<id>` and `<shortname>` from the folder name.
 - Multi-unit if `units/` exists and is non-empty; flat otherwise.
+- Under `--auto`, resolution is strict. If the arg is absent, matches no folder, or matches more than one folder, do not prompt and do not glob a default; stop before the step-1 permalink base and step-2 idempotency call and emit `{ needs_human: true, epic_key: "", sub_issues: [], reason: <names the missing/unknown id or the candidate folders> }`. Default mode keeps the most-recent default and the `AskUserQuestion` disambiguation verbatim.
+
+   Success-path structured result block (emitted by step 4 under `--auto`):
+   `{ needs_human: false, epic_key: <number>, sub_issues: [{ slug: <slug>, number: <number>, status: "created" | "existing" }], reason: "" }`
 
 ## Workflow
 
@@ -28,7 +33,7 @@ Layout, markers, and labels: `@~/.autocode/autocode/design/design-folder.md`. Th
 
    Flat (no `units/`):
    - One issue (if `autocode:epic=<id>` marker absent): body from `DESIGN.md` `## Summary` + permalink + `<!-- autocode:epic=<id> -->`. `provider/run.sh issue-tracker issue-create -t <DESIGN.type> -s "<DESIGN.md H1>" -b "<body>"`. No parent. This issue is both epic and unit.
-4. Report a table: each issue's role (epic / unit slug), number, and created-or-existing.
+4. Report. Default: a table of each issue's role (epic / unit slug), number, and created-or-existing. With `--auto`: emit the success structured result block (`needs_human: false`, `epic_key`, `sub_issues`) in place of the table.
 
 ## Rules
 
