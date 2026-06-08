@@ -34,3 +34,11 @@ PR: TBD  Unit: #17
 Rewrote the `impl` skill from a single-unit launcher into a stateless, re-entrant epic orchestrator. The orchestrator reconstructs all state each turn from the tracker (done / in-review / todo) and the session's live run ids; reconciles by PR existence via `pr-find` rather than tracker status alone; launches a capped wave of per-unit background workflows under `impl.max-concurrent-units`; refills empty slots on completion; prunes merged worktrees; and triggers `impl-archive` when every unit is done. Single-unit invocations retain their existing contract unchanged. Added the `impl.max-concurrent-units` setting to `settings-schema.md` and updated `autocode/impl/CLAUDE.md` with the new epic-orchestrator entry point and routing rules.
 
 Notes: The monitoring, merge-gating, and cron sub-units (`impl-orchestrator-monitor`, `impl-orchestrator-notify`, `impl-cron`) are separate units in this epic and depend on this one.
+
+## impl-orchestrator-monitor — 2026-06-08
+
+Unit: #18
+
+Added `monitor-workflow.mjs`: fans out one checker agent per in-review PR via `parallel()`, each reads `pr-status`, runs exactly one `--auto` remediation (`pr-rebase` / `pr-fix-ci` / `pr-review`) for the first blocked condition, and returns a typed `VERDICT_SCHEMA` object. Fan-out is capped to `impl.max-concurrent-units` (chunked batches) to avoid saturating concurrency on large epics. Filled `## Monitoring` in the `impl` SKILL.md with launch steps, user-gated merge, `PushNotification`, and opt-in `--watch` cron (session-scoped, never merges). Dropped `--admin` from code-bearing unit PR merges so branch-protection gates enforce normally.
+
+Notes: Three commits: feat adds the workflow + monitoring section; two fixes cap concurrency and drop --admin.
