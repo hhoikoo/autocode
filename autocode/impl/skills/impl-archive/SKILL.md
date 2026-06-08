@@ -21,8 +21,9 @@ Layout, discovery, and lifecycle: `@~/.autocode/autocode/design/design-folder.md
    - `git mv .autocode/design/<id>-<short> .autocode/archive/<id>-<short>` (if the source no longer exists, it is already archived; report and stop).
    - In `.autocode/design/INDEX.md`, flip this epic's row to `status: archived`. The row and its id stay; never removed or reused.
 6. Delegate to `git-commit` (a `chore` commit; note that the epic is complete).
-7. Delegate to `pr-create --lightweight` (the change is a folder move, not code).
-8. Report the PR URL and that merging it archives the folder; note the epic issue is closed.
+7. Delegate to `pr-create --lightweight` (the change is a folder move, not code). Capture the PR number from its result.
+8. Auto-merge: `provider/run.sh git-remote pr-merge <pr-number> --admin`. A folder move needs no review, and `--admin` bypasses required checks. The script is a no-op if the PR is already merged.
+9. Report the PR URL, that it was merged (archiving the folder), and that the epic issue is closed.
 
 ## Rules
 
@@ -30,5 +31,6 @@ Layout, discovery, and lifecycle: `@~/.autocode/autocode/design/design-folder.md
 - All tracker writes go through `provider/run.sh issue-tracker ...`.
 - Idempotent: re-running on an already-archived epic detects the missing source folder and stops cleanly; `issue-transition` tolerates an already-closed epic.
 - Delegate commit and PR creation; do not inline them.
+- Auto-merge the archive PR with `--admin`: it is a pure folder move and warrants no review.
 
 $ARGUMENTS
