@@ -85,7 +85,7 @@ On completion, read `{ verdicts, tally }`. Surface every `needs_human` verdict w
 
 ### User-gated merge
 
-Present merge-ready PRs; wait for explicit approval. Only on approval, merge each named PR via `provider/run.sh git-remote pr-merge <pr> --admin`. Never merge without approval; the workflow never merges.
+Present merge-ready PRs; wait for explicit approval. Only on approval, merge each named PR via `provider/run.sh git-remote pr-merge <pr>`. Never merge without approval; the workflow never merges. Do not pass `--admin`; let server-side branch-protection gates (required reviews, CI checks) enforce normally and fail loudly if unmet. Reserve `--admin` only for the pure folder-move archive PR in `impl-archive`.
 
 ### Hand back to the cascade
 
@@ -110,7 +110,7 @@ Local-session cron is the only supported path: headless/cloud Routines lose loca
 - Cross-session `in-progress` with no live run -> restart (clean up worktree + branch, reset sub-issue to `todo`), not resume. `resumeFromRunId` only same-session.
 - Thin orchestration: launch and cascade only; the per-phase skills (`impl-start`, `impl-plan`, `impl-execute`, `impl-critique-*`, `impl-push`, `pr-rebase`, `pr-fix-ci`, `pr-review`, `impl-archive`) stay individually invocable. `impl-workflow.mjs` and per-unit phase logic are unchanged.
 - Monitoring runs on user command or opt-in cron only, never automatically every turn.
-- The monitor workflow never merges; merge is main-session and user-gated (`pr-merge <pr> --admin` only after explicit approval).
+- The monitor workflow never merges; merge is main-session and user-gated (`pr-merge <pr>` only after explicit approval; no `--admin` for code-bearing PRs).
 - Cron is opt-in, session-scoped, never merges; local-session is the only supported cron context.
 
 $ARGUMENTS
