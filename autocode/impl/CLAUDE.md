@@ -1,8 +1,8 @@
 # impl/
 
-Implementation phase. Worktree-bound skills drive a single unit of work from an approved design to a pushed branch.
+Implementation phase. Worktree-bound skills drive a fanned-out design epic to completion; each per-unit worktree still carries one unit from design to pushed branch.
 
-`impl` is the orchestrator. It sets up the worktree via `impl-start` (the one interactive step), then launches a background workflow (`skills/impl/scripts/impl-workflow.mjs`, run via the Workflow tool) that carries the unit through plan -> execute -> review -> challenge -> decide -> fix -> push -> hygiene, each phase its own agent with a per-phase model (opus for reasoning and review, sonnet for mechanical work). The workflow does the fan-out the per-phase skills cannot, since subagents cannot spawn subagents. The heavy work stays out of the launching session.
+`impl` is the stateless, re-entrant epic orchestrator. Given a fanned-out epic it reconstructs unit state from the tracker each turn, computes the dependency-ready set, launches per-unit background workflows (`skills/impl/scripts/impl-workflow.mjs`, run via the Workflow tool) under a concurrency cap (`impl.max-concurrent-units`, default 3), refills as they finish, cascades on user merge, prunes merged worktrees, and triggers `impl-archive` when every unit is done. A bare ticket / `<type>: <desc>` keeps the single-unit launch. Each workflow carries its unit through plan -> execute -> review -> challenge -> decide -> fix -> push -> hygiene, each phase its own agent with a per-phase model (opus for reasoning and review, sonnet for mechanical work). The workflow does the fan-out the per-phase skills cannot, since subagents cannot spawn subagents. The heavy work stays out of the launching session. The `## Monitoring` seam is filled by the `impl-orchestrator-monitor` unit (room for its workflow/skill entries).
 
 The per-phase skills are also usable on their own:
 - `impl-start`: pick a DAG-ready unit, set up the worktree + branch + `.impl-context`.
