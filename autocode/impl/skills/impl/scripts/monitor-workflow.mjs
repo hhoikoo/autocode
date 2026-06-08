@@ -5,10 +5,13 @@ export const meta = {
   phases: [{ title: 'Check', detail: 'sonnet: per-PR status read and one --auto remediation', model: 'sonnet' }],
 }
 
-// args (from the impl monitor launcher): { homeDir, prs }
+// args (from the impl monitor launcher): { homeDir, prs, maxConcurrent }
 // prs = [{ pr:int, slug:str, branch:str, worktree:str }]
 const HOME = args.homeDir
 const PRS = Array.isArray(args.prs) ? args.prs : []
+const MAX_CONCURRENT = typeof args.maxConcurrent === 'number' && args.maxConcurrent > 0
+  ? args.maxConcurrent
+  : 3
 
 // Resolve skill paths. pr-rebase, pr-fix-ci, pr-review live under autocode/pr/skills/.
 const prSkill = (name) => `${HOME}/.autocode/autocode/pr/skills/${name}/SKILL.md`
@@ -71,17 +74,27 @@ function checkerPrompt(p) {
 }
 
 phase('Check')
-const verdicts = await parallel(
-  PRS.map(
-    (p) => () =>
-      agent(checkerPrompt(p), {
-        label: `check:${p.slug}#${p.pr}`,
-        phase: 'Check',
-        model: 'sonnet',
-        schema: VERDICT_SCHEMA,
-      }),
-  ),
-)
+// Fan-out is capped at MAX_CONCURRENT (mirrors impl.max-concurrent-units) to bound
+// parallel agent + build concurrency as in-review PRs accumulate toward epic size.
+const chunks = []
+for (let i = 0; i < PRS.length; i += MAX_CONCURRENT) {
+  chunks.push(PRS.slice(i, i + MAX_CONCURRENT))
+}
+const verdicts = []
+for (const chunk of chunks) {
+  const batch = await parallel(
+    chunk.map(
+      (p) => () =>
+        agent(checkerPrompt(p), {
+          label: `check:${p.slug}#${p.pr}`,
+          phase: 'Check',
+          model: 'sonnet',
+          schema: VERDICT_SCHEMA,
+        }),
+    ),
+  )
+  verdicts.push(...batch)
+}
 
 const live = verdicts.filter(Boolean)
 const tally =

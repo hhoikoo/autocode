@@ -77,7 +77,7 @@ Monitoring runs on explicit user command (user asks to check the PRs) or an opt-
 1. Compute the in-review set: reuse Reconciliation's `in-review` units (`pr-find <issue-key>` -> open PR). For each, read the PR's head branch via `gh pr view <pr> --json headRefName`. Map `branch` -> `worktree` from `git worktree list --porcelain` by matching the `/<key>/` segment (same recovery as Reconciliation).
 2. If an in-review PR has no worktree (pruned out of band): let the checker return `needs_human` rather than cd into a missing path; the verdict surfaces it for the user.
 3. Resolve `homeDir` (`echo "$HOME"`).
-4. Launch `monitor-workflow.mjs` via the `Workflow` tool, background, `args: { homeDir, prs }` where each `prs` entry is `{ pr, slug, branch, worktree }`. Its completion re-invokes the orchestrator (same `<task-notification>` mechanism as `impl-workflow`).
+4. Launch `monitor-workflow.mjs` via the `Workflow` tool, background, `args: { homeDir, prs, maxConcurrent }` where each `prs` entry is `{ pr, slug, branch, worktree }` and `maxConcurrent` is the same `impl.max-concurrent-units` value (default `3`) used by the wave launcher. Its completion re-invokes the orchestrator (same `<task-notification>` mechanism as `impl-workflow`).
 
 ### Read the report
 
