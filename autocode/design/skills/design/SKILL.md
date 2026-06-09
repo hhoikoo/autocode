@@ -24,7 +24,7 @@ Run every turn; never cache.
 
 **Tracker:** `provider/run.sh issue-tracker issue-epic-list --epic <id>`. Returns `[]` -> not yet fanned out. Non-empty -> fanned out.
 
-**Open design PR:** The design branch is `docs/design-<short>` (created in the plan phase via `git-create-branch`; `design-plan-push` only re-creates it as a fresh-session fallback). To detect an open PR: use `gh pr list --head docs/design-<short> --json number,url,state` from the design worktree, or as a fallback use `provider/run.sh git-remote pr-view` against the known PR number. No `pr-find`/`pr-list` provider abstraction exists today (DESIGN decision 10 explicitly defers it); the orchestrator uses `gh pr list` directly and notes this gap.
+**Open design PR:** The design branch is `docs/design-<short>` (created in the plan phase via `git-create-branch`; `design-plan-push` only re-creates it as a fresh-session fallback). To detect an open PR: call `provider/run.sh git-remote pr-find --branch docs/design-<short>` from the design worktree. A returned `state: open` is the in-review signal. As a fallback use `provider/run.sh git-remote pr-view` against a known PR number.
 
 **INDEX.md `status` caveat:** `status` is a coarse two-state flag (`active`/`archived`; `design-folder.md` lines 30-31). It does not distinguish pre-archive stages. Fine-grained stage comes from disk + tracker + PR, not `INDEX.md`.
 
@@ -52,7 +52,7 @@ fanned-out -> hand off: invoke `impl --from-design <id>` (the 0002 orchestrator)
 
 **`none`:** Launch `design-plan-workflow.mjs` off-context via the Workflow tool (not inline, not a subagent; the workflow can fan out research and the main session preserves the `AskUserQuestion` capability for the gate). Consume `{ folder, id, units[], underspecified[], open_qs }`. Surface any `underspecified` items or `open_qs`; on none, continue to critique.
 
-**`planned` -> critique:** Launch `design-critique-workflow.mjs` off-context via the Workflow tool (bounded to 5 iterations). Consume `{ iterations_run, files_modified, needs_human, needs_human_reasons[] }`. On `needs_human` true, surface `needs_human_reasons[]` and stop; re-invocation re-runs critique (idempotent). On `needs_human` false, continue to push.
+**`planned` -> critique:** Launch `design-critique-workflow.mjs` off-context via the Workflow tool (bounded to 5 iterations). Consume `{ status, iterations_run, files_modified, needs_human, needs_human_reasons[] }`. Gate the push transition on `status`: only `status: done` with `needs_human: false` advances to push. On `status: error` or `status: cap_reached`, surface the result and stop. On `needs_human: true`, surface `needs_human_reasons[]` and stop; re-invocation re-runs critique (idempotent).
 
 **`planned` (critique clean) -> push:** Run `design-plan-push` (light phase, may stay in-session). Consume `{ pr_url, branch }`. Stage becomes `in-review`.
 
@@ -75,7 +75,7 @@ Heavy phases (plan, critique) are background Workflow scripts launched directly 
 Typed `--auto` returns consumed by this orchestrator:
 
 - `design-plan-orchestrator-ready`: `{ folder, id, units[], underspecified[], open_qs }`.
-- `design-critique-auto`: `{ iterations_run, files_modified, needs_human, needs_human_reasons[] }`.
+- `design-critique-auto`: `{ status, iterations_run, files_modified, needs_human, needs_human_reasons[] }`. `status` is one of `done | error | cap_reached`.
 - `design-iterate-auto`: `{ applied, replied, needs_human }`.
 - `design-fanout-auto`: `{ epic_key, sub_issues[] }`.
 
@@ -85,7 +85,7 @@ These workflow scripts and `--auto` modes are authored by their respective sibli
 
 - **Ambiguous id/shortname:** Multiple folders or INDEX rows match -> `AskUserQuestion` before dispatching.
 - **Plan returns `underspecified`/`open_qs`:** Surface them; user re-invokes `/design <id>` to re-enter at `planned`.
-- **Critique `needs_human`:** Surface `needs_human_reasons[]` and stop; re-invoke re-runs critique (idempotent) or proceeds if issues are resolved.
+- **Critique `needs_human` or error:** Surface `needs_human_reasons[]` (or `status: error`/`cap_reached` details) and stop; re-invoke re-runs critique (idempotent) or proceeds if issues are resolved.
 - **Contested review comments:** Iterate applies high-confidence ones, surfaces the rest; merge gate remains the user's.
 - **Fanout already done by the GH Action:** `issue-epic-list` returns non-empty -> skip `design-fanout`, proceed straight to hand-off (`design-fanout` is idempotent by body marker).
 - **`--temp`:** Run only the plan phase and stop; point the user at `/design-plan-critique <dir>` for next steps.
