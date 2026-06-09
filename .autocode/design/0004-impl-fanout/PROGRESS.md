@@ -4,3 +4,8 @@
 
 Unit: #48
 Adds the `impl-gapcheck` leaf skill and its plugin shim. The skill reads a design folder's unit files, checks each unit's implementation against the design spec, and surfaces gaps as a ranked finding list. It also registers itself in the `autocode/impl/CLAUDE.md` feature-set index.
+## execute-no-commit-scope — 2026-06-09
+
+Unit: #47
+
+Added `--no-commit` flag to `impl-execute` and `--module <name>` flag for per-module fanout. The two flags are independent and compose with `--auto`. Under `--no-commit`, the `git-commit` delegation is suppressed entirely; all changes land in the working tree unstaged. Under `--module`, execution is scoped to the named group in the plan's `## Module partition` section (`foundation` resolves to `### Foundation`; any other name matches a `### Modules` entry). Both flags are described in the workflow steps and the rules section.
