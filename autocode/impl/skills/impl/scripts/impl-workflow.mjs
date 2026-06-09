@@ -16,11 +16,13 @@ export const meta = {
 
 // args (from the impl launcher): { homeDir, worktree, slug, base, dims }
 // unit_key/design_id are not passed: phases read them from .autocode/.impl-context in the worktree.
-const HOME = args.homeDir
-const WT = args.worktree
-const SLUG = args.slug
-const BASE = args.base
-const DIMS = args.dims ? String(args.dims).split(',').map((d) => d.trim()).filter(Boolean) : null
+// The runtime may deliver args as a JSON string rather than a parsed object.
+const A = typeof args === 'string' ? JSON.parse(args) : (args || {})
+const HOME = A.homeDir
+const WT = A.worktree
+const SLUG = A.slug
+const BASE = A.base
+const DIMS = A.dims ? String(A.dims).split(',').map((d) => d.trim()).filter(Boolean) : null
 const MAX_FIX_ROUNDS = 2
 
 // Subagents cannot spawn subagents, so all fan-out lives here in the workflow
