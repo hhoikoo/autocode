@@ -46,6 +46,7 @@ Collect a value for every required key, plus any optional key whose default the 
 - `provider.git-remote` (required, shared): default `github`.
 - `provider.ci` (optional, shared): default is the same value as `provider.git-remote`. When the user accepts the default, omit `--ci=` from the script invocation so `provider/run.sh` falls back to `provider.git-remote` at dispatch time.
 - `paths.projects-dir` (required, local): default is the parent of the repo root (`dirname "$repo_root"`); surface that default in the prompt. Accept absolute paths or `~/`-prefixed paths; resolve `~` to the user's home before writing.
+- `impl.fanout-mode` (optional, shared): default `auto`. Whether per-unit workflows fan the Execute phase out per module. Values: `auto` (heavy partitionable units only) | `off` (always single-agent) | `on` (any partitionable unit). When the user accepts `auto`, no flag is needed; it is the default. To override after setup, add the key to `$AUTOCODE_CONFIG_DIR/settings.json` manually.
 
 Build each file's JSON via the helper, one scope at a time:
 

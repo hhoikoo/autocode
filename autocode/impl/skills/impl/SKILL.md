@@ -7,6 +7,7 @@ Stateless, re-entrant epic orchestrator. Holds no durable state; reconstructs al
 - `--from-design <id|shortname>`: epic mode. Resolves the design folder and drives the full wave/cascade/archive cycle.
 - Bare `<ticket-id>` / `<type>: <description>`: single-unit launch (unchanged contract). Optional when cwd is already a set-up unit worktree (epic mode if its `.impl-context` resolves an epic; else single-unit).
 - `--dims <list>`: review dimensions, forwarded to each launched `impl-workflow`.
+- `--fanout <auto|off|on>`: override the `impl.fanout-mode` setting for this run, forwarded to each launched `impl-workflow`. When omitted, the setting value is used.
 - `--watch`: opt in at launch to a session-scoped monitoring cron (off by default). Equivalent to accepting the plain at-launch prompt.
 
 ## Workflow
@@ -23,7 +24,7 @@ A flat design (no `units/`) under `--from-design` collapses to a wave of one; ar
 
 ### Single-unit branch
 
-Retain today's contract. `impl-start` (interactive) -> capture worktree path, `slug`, `unit_key`, `design_id`. Resolve `homeDir` (`echo "$HOME"`); resolve `base` (`git symbolic-ref --short refs/remotes/origin/HEAD` with the `origin/` prefix stripped; fall back to the local default branch). Launch one `Workflow` over `impl-workflow.mjs` with `args: { homeDir, worktree, slug, base, dims }`. Report the PR URL on completion. No cascade, no archive.
+Retain today's contract. `impl-start` (interactive) -> capture worktree path, `slug`, `unit_key`, `design_id`. Resolve `homeDir` (`echo "$HOME"`); resolve `base` (`git symbolic-ref --short refs/remotes/origin/HEAD` with the `origin/` prefix stripped; fall back to the local default branch). Resolve `fanout`: read `impl.fanout-mode` (default `auto`) from `$AUTOCODE_CONFIG_DIR/settings.json`, overridden by `--fanout` when supplied. Launch one `Workflow` over `impl-workflow.mjs` with `args: { homeDir, worktree, slug, base, dims, fanout }`. Report the PR URL on completion. No cascade, no archive.
 
 ### Epic discovery (re-run every turn, no caching)
 
@@ -46,9 +47,9 @@ Resolve each unit's PR up front with `provider/run.sh git-remote pr-find <issue-
 
 ### Capped wave launch
 
-Read `impl.max-concurrent-units` (default `3`) from `$AUTOCODE_CONFIG_DIR/settings.json`. Slots = cap minus running count (run ids this session launched and not yet seen complete). Cap is per-session-orchestrator; two epics in one session contend on the same cap.
+Read `impl.max-concurrent-units` (default `3`) from `$AUTOCODE_CONFIG_DIR/settings.json`. Also read `impl.fanout-mode` (default `auto`) from the same file, overridden by the `--fanout` orchestrator arg when supplied. Slots = cap minus running count (run ids this session launched and not yet seen complete). Cap is per-session-orchestrator; two epics in one session contend on the same cap.
 
-For each ready unit up to `slots`: `impl-start --unit <slug> --auto` capturing the structured block (worktree path, branch, slug, unit_key, epic_key, design_id), then a background `Workflow` over `impl-workflow.mjs` with `args: { homeDir, worktree, slug, base, dims }`. Record each returned run id in working context (the session-scoped running-set evidence). Report the launched wave and queued remainder; never silently truncate.
+For each ready unit up to `slots`: `impl-start --unit <slug> --auto` capturing the structured block (worktree path, branch, slug, unit_key, epic_key, design_id), then a background `Workflow` over `impl-workflow.mjs` with `args: { homeDir, worktree, slug, base, dims, fanout }`. Record each returned run id in working context (the session-scoped running-set evidence). Report the launched wave and queued remainder; never silently truncate.
 
 ### Self-sustaining refill
 
