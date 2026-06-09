@@ -13,6 +13,15 @@ Notes: Two fix commits landed after initial impl to correct the structured resul
 Unit: #28
 
 Added `--auto` flag to `design-plan-iterate` skill. The flag enables unattended execution: strict arg resolution (no `AskUserQuestion` prompts), a structured result block (`needs_human`, `design_id`, `shortname`, `iterations_run`, `open_questions_remaining`) on completion, and an early-exit `needs_human: true` block when the design id is absent or ambiguous. Critique and resolution passes run unchanged; the flag only gates interactivity and shapes the final output block.
+
+## design-critique-auto — 2026-06-08
+
+Unit: #26
+
+Added `design-critique-workflow.mjs` as a background critique loop (Question / Resolve / Apply, capped at 5 iterations) and made `design-plan-critique --auto` a thin launcher over it with a structured `needs_human` return; the non-`--auto` interactive path is unchanged.
+
+Notes: A fix round resolved two Important findings in the workflow: null resolve-results are now counted, surfaced in `needs_human_reasons`, and logged to the `## Critique log` as `(deferred)`; a total-failure final pass now reports `cap_reached` (`needs_human: true`) instead of `done`.
+
 ## design-plan-orchestrator-ready — 2026-06-08
 
 Unit: #30
