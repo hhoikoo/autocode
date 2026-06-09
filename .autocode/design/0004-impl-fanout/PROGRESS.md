@@ -13,3 +13,9 @@ Added `--no-commit` flag to `impl-execute` and `--module <name>` flag for per-mo
 
 Unit: #49
 Added a `## Module partition` section to the `impl-plan` skill (`autocode/impl/skills/impl-plan/SKILL.md`). The section directs the planner to emit a foundation set plus file-disjoint module groups (or an explicit non-partitionable statement) as the final planning step, so the workflow's Partition agent can transcribe the split from the plan file without re-deriving it. 23 lines added, 2 changed.
+## workflow-fanout-wiring — 2026-06-09
+
+Unit: #50
+Wired the fanout workflow into `impl-workflow.mjs`. Added a Partition phase that reads the `## Module partition` block from the plan, an Execute fork that launches parallel per-module background workflows when `impl.fanout-mode` is enabled (falling back to single-agent execution otherwise), and a GapCheck loop that runs `impl-gapcheck` after each module completes. Also added the `impl.fanout-mode` setting to `settings-schema.md` and updated the `/impl` SKILL.md and orchestrator docs. The `--fanout` arg is forwarded from both the single-unit and capped-wave launch paths.
+
+Notes: `impl.fanout-mode` defaults to `false`; enabling it requires explicit opt-in in `settings.json`.
