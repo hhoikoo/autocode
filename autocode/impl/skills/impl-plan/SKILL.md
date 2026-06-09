@@ -28,11 +28,32 @@ Design-folder layout, `.impl-context` keys, unit DAG, and the progress lifecycle
    - The test plan: which tests prove the unit, where they live, what they assert.
    - The implementation order, respecting within-unit dependencies.
    - Read the `CLAUDE.md` and `.claude/rules/` globs covering each changed path and bake their constraints into the plan, so execution just follows the plan rather than re-deriving conventions.
+   - The module partition: as the final planning step, once every file, signature, and data shape above is resolved, partition the planned files into a foundation set plus file-disjoint module groups (or declare the unit non-partitionable). Derive it from the file DAG you just resolved, not from a separate inference pass. Shape and partitionability bar: see `## Module partition` below.
    Bound it strictly to the unit's `## Implementation` scope plus the DESIGN cross-cutting constraints. Anything the spec does not cover is out of scope: list it as such, do not fold it in. Fold the freeform note here.
 
-4. Write the plan to `.autocode/.impl-plan.md` in the worktree: the per-file task list, the test plan, the implementation order, and the out-of-scope list. This file is the spec `impl-execute` consumes. Ensure `.autocode/.gitignore` ignores it (create if missing, append if absent); it is a transient artifact, not committed.
+4. Write the plan to `.autocode/.impl-plan.md` in the worktree: the per-file task list, the test plan, the implementation order, the `## Module partition` section, and the out-of-scope list. This file is the spec `impl-execute` consumes. Ensure `.autocode/.gitignore` ignores it (create if missing, append if absent); it is a transient artifact, not committed.
 
-5. Report. Default: the plan path and a short summary of the task list. With `--auto`: emit a structured result block (plan path, file count, out-of-scope count). Next step: `/impl-execute`.
+5. Report. Default: the plan path and a short summary of the task list. With `--auto`: emit a structured result block (plan path, file count, out-of-scope count). The `## Module partition` section is read from the plan file by the workflow's Partition agent, not surfaced in this block; leave the `--auto` fields unchanged. Next step: `/impl-execute`.
+
+## Module partition
+
+`## Module partition` is written into `.autocode/.impl-plan.md` so the workflow's Partition agent can read it into `{ files_total, partitionable, foundation, modules[] }` without re-deriving the grouping. The planner owns the split; the agent only transcribes.
+
+### Foundation
+
+Optional subsection. List the shared types, interfaces, and contracts, with every defining file named explicitly. Implemented sequentially before any module so modules build against resolved interfaces without seeing each other's uncommitted code. Omit the `### Foundation` subsection entirely when nothing is shared.
+
+### Modules
+
+Required subsection when partitionable. One entry per module: a name, an explicit list of files it owns, and a one-line scope. Files must be disjoint across modules and disjoint from the foundation set; every planned file belongs to at most one module or to the foundation. A module must not be named `foundation` (reserved for the `### Foundation` group; `impl-execute --module foundation` resolves to it, so the name would collide).
+
+### Partitionability bar
+
+Emit genuine file-disjoint modules only when the work truly splits into independent pieces sharing nothing but foundation-defined interfaces. The bar (per DESIGN Design decision 3): emit real modules only when the foundation and plan resolve interfaces concretely enough that a module agent implements its files without seeing sibling modules' uncommitted code. Anything two modules genuinely share goes in `### Foundation`; if interfaces cannot be pinned that precisely, the unit is not partitionable. A single module is treated as non-partitionable.
+
+When not partitionable, state so explicitly (e.g., `partitionable: false`) so the consumer reads the flag rather than guessing from an empty list.
+
+Format: keep it machine-readable. Use clear subsection headers (`### Foundation`, `### Modules`), explicit file lists, and module names as headers or labeled entries. The skill instructs on format; it does not parse.
 
 ## Rules
 
