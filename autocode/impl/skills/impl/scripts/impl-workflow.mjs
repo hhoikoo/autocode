@@ -3,7 +3,13 @@ export const meta = {
   description: 'Implement one design unit: plan, execute, review (challenge/decide), fix, push, hygiene',
   phases: [
     { title: 'Plan', detail: 'opus: resolve all unknowns into a mechanical plan', model: 'opus' },
+    { title: 'Partition', detail: 'sonnet: transcribe the plan partition and judge heaviness', model: 'sonnet' },
     { title: 'Execute', detail: 'sonnet: carry out the plan and commit', model: 'sonnet' },
+    { title: 'Foundation', detail: 'sonnet: implement the shared foundation group (no commit)', model: 'sonnet' },
+    { title: 'Modules', detail: 'sonnet: implement each module group in parallel (no commit)', model: 'sonnet' },
+    { title: 'Commit', detail: 'sonnet: commit each group sequentially via git-commit', model: 'sonnet' },
+    { title: 'GapCheck', detail: 'opus: verify every plan item is implemented', model: 'opus' },
+    { title: 'GapFix', detail: 'sonnet: fill the gaps the gapcheck found', model: 'sonnet' },
     { title: 'Prep', detail: 'sonnet: size the diff and pick review dimensions', model: 'sonnet' },
     { title: 'Review', detail: 'opus: per-dimension reviewers', model: 'opus' },
     { title: 'Challenge', detail: 'opus: contest the findings', model: 'opus' },
@@ -23,7 +29,9 @@ const WT = A.worktree
 const SLUG = A.slug
 const BASE = A.base
 const DIMS = A.dims ? String(A.dims).split(',').map((d) => d.trim()).filter(Boolean) : null
+const FANOUT = A.fanout || 'auto' // 'auto' | 'off' | 'on'
 const MAX_FIX_ROUNDS = 2
+const GAP_MAX_ROUNDS = 2
 
 // Subagents cannot spawn subagents, so all fan-out lives here in the workflow
 // runtime. Agents run skills by reading the canonical body by absolute path
@@ -127,6 +135,61 @@ const PUSH_SCHEMA = {
   required: ['pr_url', 'branch', 'hygiene_shas', 'hygiene_files'],
 }
 
+const PARTITION_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    files_total: { type: 'integer' },
+    heavy: { type: 'boolean' },
+    partitionable: { type: 'boolean' },
+    foundation: {
+      type: ['object', 'null'],
+      additionalProperties: false,
+      properties: {
+        files: { type: 'array', items: { type: 'string' } },
+        summary: { type: 'string' },
+      },
+      required: ['files', 'summary'],
+    },
+    modules: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          name: { type: 'string' },
+          files: { type: 'array', items: { type: 'string' } },
+          summary: { type: 'string' },
+        },
+        required: ['name', 'files', 'summary'],
+      },
+    },
+  },
+  required: ['files_total', 'heavy', 'partitionable', 'foundation', 'modules'],
+}
+
+const GAPCHECK_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    complete: { type: 'boolean' },
+    gaps: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          file: { type: 'string' },
+          plan_item: { type: 'string' },
+          detail: { type: 'string' },
+        },
+        required: ['file', 'plan_item', 'detail'],
+      },
+    },
+  },
+  required: ['complete', 'gaps'],
+}
+
 const importantOf = (decided) => decided.actionable.filter((a) => a.severity === 'Important')
 
 async function reviewCycle(tag) {
@@ -179,12 +242,97 @@ await agent(
   { label: 'plan', phase: 'Plan', model: 'opus' },
 )
 
-phase('Execute')
-await agent(
-  inWt + follow(skill('impl-execute'),
-    'Run it in --auto mode. It reads .autocode/.impl-plan.md, implements the unit, and commits via git-commit. Return a one-paragraph summary of what shipped.'),
-  { label: 'execute', phase: 'Execute', model: 'sonnet' },
+phase('Partition')
+const part = await agent(
+  inWt +
+    'Read .autocode/.impl-plan.md, specifically its `## Module partition` section (the planner writes a `### Foundation` group and a `### Modules` list, or declares the unit non-partitionable). ' +
+    'Transcribe that section into the schema; do NOT re-infer the grouping from the file list. ' +
+    'Set `files_total` to the count of ALL in-scope planned files across the whole plan (the per-file task list), independent of the partition. ' +
+    'Set `partitionable` true only when the section declares genuine file-disjoint modules (>=2); a missing section, a non-partitionable declaration, or a single module means `partitionable: false` with `modules: []`. ' +
+    'Set `foundation` to the `### Foundation` group ({ files, summary }) when present, else null. ' +
+    'Judge `heavy` yourself from the whole plan: compaction risk over a single Execute agent (file count, total plan size, cross-file coupling). A small, loosely-coupled plan is not heavy.',
+  { label: 'partition', phase: 'Partition', model: 'sonnet', schema: PARTITION_SCHEMA },
 )
+const heavy = !!part && part.heavy
+const fanout = !!part &&
+  FANOUT !== 'off' &&
+  part.partitionable &&
+  part.modules.length >= 2 &&
+  (FANOUT === 'on' || heavy)
+
+phase('Execute')
+if (fanout) {
+  let foundationOk = true
+  if (part.foundation) {
+    phase('Foundation')
+    const found = await agent(
+      inWt + follow(skill('impl-execute'),
+        'Run it in --auto --no-commit --module foundation mode. Implement ONLY the `### Foundation` group of the plan\'s `## Module partition`, leave all changes uncommitted in the working tree, and report the files written.'),
+      { label: 'foundation', phase: 'Foundation', model: 'sonnet' },
+    )
+    foundationOk = found != null
+  }
+  if (foundationOk) {
+    phase('Modules')
+    await parallel(part.modules.map((m) => () =>
+      agent(
+        inWt + follow(skill('impl-execute'),
+          `Run it in --auto --no-commit --module ${m.name} mode. Implement ONLY the "${m.name}" module group of the plan's \`## Module partition\`, leave all changes uncommitted in the working tree, and report the files written.`),
+        { label: `module:${m.name}`, phase: 'Modules', model: 'sonnet' },
+      )))
+    phase('Commit')
+    const commitOrder = (part.foundation ? ['foundation'] : []).concat(part.modules.map((m) => m.name))
+    await agent(
+      inWt + follow(`${HOME}/.autocode/autocode/git/skills/git-commit/SKILL.md`,
+        'Parallel module agents wrote changes to the working tree without committing. ' +
+        `Stage and commit each group as one logical commit, in this order: ${JSON.stringify(commitOrder)}. ` +
+        'For each group, stage only that group\'s files (from the plan\'s `## Module partition`) and commit via this skill, one commit per group. Do not squash groups together.'),
+      { label: 'commit', phase: 'Commit', model: 'sonnet' },
+    )
+  } else {
+    // Foundation failed: modules would build blind against missing shared types.
+    // Fall through to a clean single-agent pass over the whole plan.
+    log('foundation pass failed; falling back to single-agent execute')
+    await agent(
+      inWt + follow(skill('impl-execute'),
+        'Run it in --auto mode. It reads .autocode/.impl-plan.md, implements the unit, and commits via git-commit. Return a one-paragraph summary of what shipped.'),
+      { label: 'execute', phase: 'Execute', model: 'sonnet' },
+    )
+  }
+} else {
+  await agent(
+    inWt + follow(skill('impl-execute'),
+      'Run it in --auto mode. It reads .autocode/.impl-plan.md, implements the unit, and commits via git-commit. Return a one-paragraph summary of what shipped.'),
+    { label: 'execute', phase: 'Execute', model: 'sonnet' },
+  )
+}
+
+let gapRoundsUsed = 0
+let remainingGaps = 0
+if (heavy) {
+  let gapRound = 0
+  let gap = await agent(
+    inWt + readOnly + follow(skill('impl-gapcheck'),
+      `Check spec completeness. Plan: .autocode/.impl-plan.md. Diff: compute it yourself via \`git diff ${BASE}...HEAD\`, \`git diff HEAD\`, and untracked files from \`git status --porcelain\`. Return { complete, gaps }.`),
+    { label: 'gapcheck-r0', phase: 'GapCheck', model: 'opus', schema: GAPCHECK_SCHEMA },
+  )
+  while (gap && !gap.complete && gap.gaps.length && gapRound < GAP_MAX_ROUNDS) {
+    gapRound += 1
+    log(`gap round ${gapRound}: ${gap.gaps.length} gap(s)`)
+    await agent(
+      inWt + follow(skill('impl-execute'),
+        `Run it in --fix --auto mode. Implement these missing plan items minimally and commit:\n${JSON.stringify(gap.gaps)}`),
+      { label: `gapfix-r${gapRound}`, phase: 'GapFix', model: 'sonnet' },
+    )
+    gap = await agent(
+      inWt + readOnly + follow(skill('impl-gapcheck'),
+        `Re-check spec completeness. Plan: .autocode/.impl-plan.md. Diff: compute it yourself via \`git diff ${BASE}...HEAD\`, \`git diff HEAD\`, and untracked from \`git status --porcelain\`. Return { complete, gaps }.`),
+      { label: `gapcheck-r${gapRound}`, phase: 'GapCheck', model: 'opus', schema: GAPCHECK_SCHEMA },
+    )
+  }
+  gapRoundsUsed = gapRound
+  remainingGaps = gap && gap.gaps ? gap.gaps.length : 0
+}
 
 let round = 0
 let decided = await reviewCycle(`-r${round}`)
@@ -219,4 +367,7 @@ return {
   fix_rounds: round,
   remaining_important: importantOf(decided).length,
   review_tally: decided.tally,
+  fanout_used: fanout,
+  gap_rounds: gapRoundsUsed,
+  remaining_gaps: remainingGaps,
 }

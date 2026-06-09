@@ -23,6 +23,7 @@ Each key has exactly one home. No merging, no precedence rules. Scope is determi
 | `provider.git-remote` | string | (required) | Which git-remote provider scripts to dispatch to. Resolved by `provider/run.sh` as `provider/git-remote/<value>/<feature>.sh`. Supported values: `github`. |
 | `provider.ci` | string | value of `provider.git-remote` | Which ci provider scripts to dispatch to. Resolved by `provider/run.sh` as `provider/ci/<value>/<feature>.sh`. When unset or empty, the dispatcher falls back to `provider.git-remote`. Supported values: `github`. |
 | `impl.max-concurrent-units` | integer | `3` | Max concurrently-running per-unit workflows the epic orchestrator launches. Lower on constrained machines. Read by the `impl` orchestrator skill. |
+| `impl.fanout-mode` | enum `auto` \| `off` \| `on` | `auto` | Whether the per-unit workflow fans the Execute phase into parallel per-module agents. `auto` fans out only heavy partitionable units; `off` always uses the single-agent path; `on` fans out any partitionable unit. Read by the `impl` orchestrator skill and forwarded as `fanout` to each workflow. Gapcheck still gates on heaviness independently. |
 
 ## Local keys (`settings.local.json`)
 
