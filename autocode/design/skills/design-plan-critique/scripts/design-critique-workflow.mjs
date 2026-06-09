@@ -96,12 +96,18 @@ while (iterations < MAX_ITERATIONS) {
     )))
 
   const usable = resolved.filter(Boolean)
+  const deferred = []        // questions left open this pass (resolve null or unresolved); logged as (deferred)
   for (let i = 0; i < resolved.length; i++) {
-    if (!resolved[i]) needsHumanReasons.push({ question: q.questions[i].question, why: 'resolve agent failed' })
+    if (!resolved[i]) {
+      needsHumanReasons.push({ question: q.questions[i].question, why: 'resolve agent failed' })
+      deferred.push({ ...q.questions[i], why: 'resolve agent failed' })
+    }
   }
   for (const r of usable) {
-    if (r.unresolved) needsHumanReasons.push({ question: r.question, why: r.why })
-    else resolvedCount += 1
+    if (r.unresolved) {
+      needsHumanReasons.push({ question: r.question, why: r.why })
+      deferred.push(r)
+    } else resolvedCount += 1
   }
   const applicable = usable.filter((r) => !r.unresolved)
 
@@ -134,17 +140,22 @@ while (iterations < MAX_ITERATIONS) {
   const designWrite = await agent(
     `In ${FOLDER}/DESIGN.md: apply any DESIGN-targeted resolutions in place, then append this iteration's block to the ` +
       `## Critique log (create the section at the bottom if absent), one line per question with its resolution. ` +
+      `Log each deferred question on its own line marked "(deferred)" with its \`why\` (never drop a question). ` +
       follow(CRITIQUE,
         'Apply its in-place edit + critique-log rules (SKILL step 4: ## Critique log lists each iteration\'s questions ' +
-        'and resolutions; preserve structure; never delete sections).') +
+        'and resolutions; preserve structure; never delete sections; mark unresolved questions deferred).') +
       `\nDESIGN-targeted resolutions JSON:\n${JSON.stringify(designResolutions)}` +
       `\nAll resolutions this pass (for the log) JSON:\n${JSON.stringify(applicable)}` +
+      `\nDeferred questions this pass (log each as (deferred)) JSON:\n${JSON.stringify(deferred)}` +
       `\nIteration number: ${iterations}`,
     { label: `apply-design-i${iterations}`, phase: 'Apply', model: 'sonnet', schema: APPLY_SCHEMA },
   )
   if (designWrite?.file) filesModified.add(designWrite.file)
 
-  if (iterations >= MAX_ITERATIONS && q.questions.length > 0) status = 'cap_reached'
+  // The cap stops an unconverged loop: any work this pass (applied or deferred) means a clean
+  // no-question pass was never reached. A final pass whose resolves were all null/unresolved
+  // leaves only deferred work, so it must surface here rather than report 'done'.
+  if (iterations >= MAX_ITERATIONS && (applicable.length > 0 || deferred.length > 0)) status = 'cap_reached'
 }
 
 const needsHuman = needsHumanReasons.length > 0 || status === 'cap_reached'
