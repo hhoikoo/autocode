@@ -21,6 +21,7 @@ The per-phase skills are also usable on their own:
 - `impl-critique-review`: review the diff along one dimension (safe to fan out one per dimension).
 - `impl-critique-challenge`: contest the findings (refuted / weakened / unrefuted).
 - `impl-critique-decide`: rule which findings survive and state the minimal fix.
+- `impl-gapcheck`: read-only spec-completeness pass run by the workflow before critique. Asks "is every plan item present in the diff" (not "is the code correct"); returns `{ complete, gaps[] }`. Distinct from the quality leaves: `impl-critique` checks correctness, gapcheck checks coverage.
 
 The `code-reviewer` agent is the read-only sandbox that runs whichever `impl-critique-*` skill the caller names. The `progress-logger` agent appends per-unit log entries during implementation (driven by the Stop hook). The `oracle` agent escalates hard, well-scoped questions to opus reasoning; it is general-purpose and not part of the `impl` flow.
 
