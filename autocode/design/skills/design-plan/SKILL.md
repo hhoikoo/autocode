@@ -30,6 +30,7 @@ Layout authority: `@~/.autocode/autocode/design/design-folder.md`. Read it; this
    - dispatch `web-researcher` in background,
    - ask the user.
    Launch researchers in parallel (single message, multiple Task tool calls). They return verbatim findings; fold them into the plan.
+   Run the leanness ladder over the whole shape before decomposing: does each proposed unit or component need to exist (YAGNI), does stdlib / a native feature / an existing dep cover it, is there a simpler decomposition. Cut speculative scope here, where it is cheapest to delete. Never cut validation at trust boundaries, security, data-loss handling, or accessibility.
 4. Compose the epic plan and decompose it into units once research returns.
    - Decide multi-unit vs flat. If the work is one PR's worth, produce a flat single-unit design: `DESIGN.md` only, no `units/` (see "Flat designs" below). Otherwise decompose into independent units of work, each one PR's worth with a single clear deliverable; identify dependencies between units and confirm the graph is acyclic. A unit that depends on nothing is immediately workable.
    - `DESIGN.md` sections (multi-unit): `design-folder.md` is the authority for the section set and when each conditional one applies. Do not restate or reorder it here. Writing guidance for the sections that carry the explanation:

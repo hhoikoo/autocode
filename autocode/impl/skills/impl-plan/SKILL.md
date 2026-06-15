@@ -24,6 +24,7 @@ Design-folder layout, `.impl-context` keys, unit DAG, and the progress lifecycle
    - Never pull spec content from the issue body: it carries only `## Summary`, a permalink, and a marker, not the full plan. The authoritative spec is the file on disk in the worktree.
 
 3. Build the mechanical plan. Decide everything now so execution is pure mechanics:
+   - Run the engineering-minimalism ladder (active style) over each planned piece before committing to it: does it need to exist (YAGNI), does stdlib / a native feature / an already-installed dep cover it, can it be one line. Plan the minimum that works. Record each deliberate simplification with its ceiling and upgrade path so execution emits the matching `leanness:` comment. Speculative scope stays on the out-of-scope list, never folded in. Never trade away validation at trust boundaries, data-loss handling, security, or accessibility for brevity.
    - Per file to create or modify: the exact changes and why, keyed to the spec. Name functions, types, signatures, and data shapes concretely; do not leave them "to be determined".
    - The test plan: which tests prove the unit, where they live, what they assert.
    - The implementation order, respecting within-unit dependencies.

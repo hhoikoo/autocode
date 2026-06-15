@@ -7,7 +7,7 @@ Composer of three leaf skills (`impl-critique-review`, `impl-critique-challenge`
 ## Args
 
 All optional:
-- `--dims <list>`: comma-separated dimensions to run. `correctness` is always included. Default set: `correctness,security,performance`. Known: `correctness`, `security`, `performance`, `observability`, `standards`.
+- `--dims <list>`: comma-separated dimensions to run. `correctness` is always included. Default set: `correctness,security,performance,leanness`. Known: `correctness`, `security`, `performance`, `leanness`, `observability`, `standards`.
 - `--base <ref>`: base to diff against. Default: the repo's default branch (the same base `impl-start` worktrees from).
 
 ## Scope

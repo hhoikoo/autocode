@@ -15,6 +15,7 @@ The root `CLAUDE.md` also `@`-imports `concise.md` directly from this directory 
 - Set `keep-coding-instructions: true` unless the style explicitly redefines the assistant's role away from coding. Without it, Claude Code's coding system prompt is dropped and the harness loses guidance for tests, file edits, etc.
 - Use `force-for-plugin: true` to apply the style automatically whenever the plugin is enabled. Overrides the user's `outputStyle` setting; if multiple enabled plugins set this, the first one loaded wins.
 - ASCII only in style body. Claude reads the style every session, so AI-tell vocabulary inside it shows up in output.
+- `concise.md` carries two axes: the prose voice and a `## Engineering minimalism` section (the leanness ladder). The ladder reaches plugin users only through this file (`force-for-plugin` for the main session, the per-agent read line for subagents), so `scripts/check-plugin-shape.sh` asserts its load-bearing invariants survive every edit. Keep those phrases intact when editing.
 
 ## Adding a new style
 

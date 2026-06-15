@@ -108,7 +108,29 @@ for dir in autocode/*/; do
   fi
 done
 
-# 4. Shellcheck all shell scripts under tracked locations.
+# 4. Engineering-minimalism invariants survive in the forced output style.
+# The ladder reaches plugin users only through concise.md (force-for-plugin +
+# the per-agent read line); a careless edit must not silently gut it.
+note "checking leanness invariants in concise.md"
+style="autocode/_config/output-styles/concise.md"
+if [[ ! -f "${style}" ]]; then
+  err "missing ${style}"
+else
+  leanness_invariants=(
+    "## Engineering minimalism"
+    "Does this need to exist"
+    "input validation at trust boundaries"
+    "leanness:"
+    "ONE runnable check"
+  )
+  for phrase in "${leanness_invariants[@]}"; do
+    if ! grep -qF "${phrase}" "${style}"; then
+      err "concise.md missing leanness invariant: \"${phrase}\""
+    fi
+  done
+fi
+
+# 5. Shellcheck all shell scripts under tracked locations.
 note "shellchecking shell scripts"
 scripts=()
 while IFS= read -r f; do
