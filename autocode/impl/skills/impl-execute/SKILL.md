@@ -41,6 +41,7 @@ Design-folder layout, `.impl-context` keys, and the progress lifecycle: `@~/.aut
 ## Rules
 
 - Mechanical. Execute the plan or the findings; do not redesign. Surface plan gaps instead of widening scope silently.
+- Build minimal per the plan: emit the `leanness:` ceiling comments the plan named, and leave the plan's ONE runnable check for non-trivial logic. Do not add abstractions, scaffolding, or tests the plan did not call for.
 - Delegate commits to `git-commit`; never inline commit logic. Exception: under `--no-commit`, write changes to the working tree without committing and without inlining commit logic; the workflow's Commit step owns commits and triggers progress logging.
 - Do not own progress logging (the Stop hook + `progress-logger`) or the epic rollup (`impl-push`).
 - `--fix` applies only the supplied findings, minimally; it is not a second implementation pass.

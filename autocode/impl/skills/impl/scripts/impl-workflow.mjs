@@ -193,7 +193,7 @@ const GAPCHECK_SCHEMA = {
 const importantOf = (decided) => decided.actionable.filter((a) => a.severity === 'Important')
 
 async function reviewCycle(tag) {
-  const defaultDims = DIMS ? JSON.stringify(DIMS) : '["correctness","security","performance"]'
+  const defaultDims = DIMS ? JSON.stringify(DIMS) : '["correctness","security","performance","leanness"]'
   const prep = await agent(
     inWt +
       `Build the review context for the branch diff against ${BASE}. Count changed lines across \`git diff ${BASE}...HEAD\`, \`git diff HEAD\`, and untracked files from \`git status --porcelain\`; list the changed files; choose dimensions: under ~50 changed lines use ["correctness"], otherwise use ${defaultDims}. Set empty=true only when there is no diff at all.`,
