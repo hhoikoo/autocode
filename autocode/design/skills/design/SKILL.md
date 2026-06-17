@@ -41,8 +41,8 @@ Run every turn; never cache.
 Transition table:
 
 ```
-none       -> launch design-plan-workflow.mjs    (Workflow) -> { folder, id, units[], underspecified[], open_qs }
-planned    -> launch design-critique-workflow.mjs (Workflow) -> { iterations_run, files_modified, needs_human, needs_human_reasons[] }
+none       -> launch design-plan-workflow.mjs    (Workflow, args { homeDir, repoRoot, seed, temp })        -> { folder, id, units[], underspecified[], open_qs }
+planned    -> launch design-critique-workflow.mjs (Workflow, args { homeDir, repoRoot, folder })            -> { iterations_run, files_modified, needs_human, needs_human_reasons[] }
 planned    -> push           (design-plan-push; light, may stay in-session) -> { pr_url, branch }
 in-review  -> iterate        (design-plan-iterate --auto) -> { applied, replied, needs_human }
 =================== USER-GATED MERGE (orchestrator never merges) ===================
@@ -50,9 +50,9 @@ merged     -> fanout         (design-fanout --auto) -> { epic_key, sub_issues[] 
 fanned-out -> hand off: invoke `impl --from-design <id>` (the 0002 orchestrator)
 ```
 
-**`none`:** Launch `design-plan-workflow.mjs` off-context via the Workflow tool (not inline, not a subagent; the workflow can fan out research and the main session preserves the `AskUserQuestion` capability for the gate). Consume `{ folder, id, units[], underspecified[], open_qs }`. Surface any `underspecified` items or `open_qs`; on none, continue to critique.
+**`none`:** Launch `design-plan-workflow.mjs` off-context via the Workflow tool (not inline, not a subagent; the workflow can fan out research and the main session preserves the `AskUserQuestion` capability for the gate). Resolve `homeDir` (`echo "$HOME"`) and `repoRoot` (`git rev-parse --show-toplevel`); launch with `args: { homeDir, repoRoot, seed, temp }`. The script fails fast (throws, ~0 cost) if `seed`/`homeDir`/`repoRoot` arrive empty, so a dropped arg surfaces as a workflow error rather than a billed no-op run. Consume `{ folder, id, units[], underspecified[], open_qs }`. Surface any `underspecified` items or `open_qs`; on none, continue to critique.
 
-**`planned` -> critique:** Launch `design-critique-workflow.mjs` off-context via the Workflow tool (bounded to 5 iterations). Consume `{ status, iterations_run, files_modified, needs_human, needs_human_reasons[] }`. Gate the push transition on `status`: only `status: done` with `needs_human: false` advances to push. On `status: error` or `status: cap_reached`, surface the result and stop. On `needs_human: true`, surface `needs_human_reasons[]` and stop; re-invocation re-runs critique (idempotent).
+**`planned` -> critique:** Launch `design-critique-workflow.mjs` off-context via the Workflow tool (bounded to 5 iterations) with `args: { homeDir, repoRoot, folder }` (`folder` is the absolute design-folder path). The script fails fast if any arrive empty. Consume `{ status, iterations_run, files_modified, needs_human, needs_human_reasons[] }`. Gate the push transition on `status`: only `status: done` with `needs_human: false` advances to push. On `status: error` or `status: cap_reached`, surface the result and stop. On `needs_human: true`, surface `needs_human_reasons[]` and stop; re-invocation re-runs critique (idempotent).
 
 **`planned` (critique clean) -> push:** Run `design-plan-push` (light phase, may stay in-session). Consume `{ pr_url, branch }`. Stage becomes `in-review`.
 
