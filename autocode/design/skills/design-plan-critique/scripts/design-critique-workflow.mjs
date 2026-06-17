@@ -9,10 +9,15 @@ export const meta = {
 }
 
 // args (from the design-plan-critique --auto launcher): { homeDir, repoRoot, folder }
-const HOME = args.homeDir
-const REPO = args.repoRoot
-const FOLDER = args.folder        // absolute path to the design folder
+// The runtime may deliver args as a JSON string rather than a parsed object (mirrors impl-workflow.mjs).
+const A = typeof args === 'string' ? JSON.parse(args) : (args || {})
+const HOME = A.homeDir
+const REPO = A.repoRoot
+const FOLDER = A.folder        // absolute path to the design folder
 const MAX_ITERATIONS = 5
+
+// Fail fast before any fan-out: missing paths mean args was not delivered.
+if (!HOME || !REPO || !FOLDER) throw new Error('design-critique: args.homeDir/repoRoot/folder not delivered. Aborting before fan-out.')
 
 // Agents run skills by reading the canonical body by absolute path
 // (the skill catalog is not reliably visible to workflow agents).

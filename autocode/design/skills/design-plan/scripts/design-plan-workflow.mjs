@@ -13,10 +13,17 @@ export const meta = {
 //   { homeDir, repoRoot, seed, temp }
 // The workflow owns the entire heavy plan phase: research, synthesis, worktree creation,
 // unit-author fan-out, and the bounded retry. The launcher passes paths + seed + temp.
-const HOME = args.homeDir
-const REPO = args.repoRoot
-const SEED = String(args.seed || '')
-const TEMP = Boolean(args.temp)
+// The runtime may deliver args as a JSON string rather than a parsed object (mirrors impl-workflow.mjs).
+const A = typeof args === 'string' ? JSON.parse(args) : (args || {})
+const HOME = A.homeDir
+const REPO = A.repoRoot
+const SEED = String(A.seed || '')
+const TEMP = Boolean(A.temp)
+
+// Fail fast before any fan-out: a missing seed/paths means args was not delivered.
+// Degrading to '' would bill a full 4-phase run that only reports "no seed supplied".
+if (!SEED.trim()) throw new Error('design-plan: empty seed; args.seed not delivered. Aborting before fan-out.')
+if (!HOME || !REPO) throw new Error('design-plan: args.homeDir/repoRoot not delivered. Aborting before fan-out.')
 
 // Path helpers — agents read canonical bodies by absolute path;
 // the skill/agent catalog is not reliably visible to workflow agents.
