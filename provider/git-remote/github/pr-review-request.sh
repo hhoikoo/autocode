@@ -15,9 +15,9 @@ fi
 
 failed=0
 for reviewer in "$@"; do
-  if ! gh pr edit "${pr_number}" --add-reviewer "${reviewer}" >/dev/null 2>&1; then
-    # Re-run to surface the error and decide whether it is "already requested".
-    err=$(gh pr edit "${pr_number}" --add-reviewer "${reviewer}" 2>&1 || true)
+  # One mutation per reviewer; capture stderr so an "already requested" error is
+  # tolerated without re-running (a re-run can flip a real failure to success).
+  if ! err=$(gh pr edit "${pr_number}" --add-reviewer "${reviewer}" 2>&1); then
     if echo "${err}" | grep -qiE 'already (a )?(requested|reviewer)|already has a review|cannot request review from'; then
       echo "pr-review-request.sh: ${reviewer} already on PR #${pr_number}, skipping" >&2
       continue

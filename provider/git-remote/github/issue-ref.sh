@@ -21,8 +21,11 @@ fi
 
 # Non-numeric key: search for a mirrored GitHub issue that references the key in
 # its title or body. Emit its number, or nothing when no mirror exists.
-number=$(gh issue list --search "${tracker_key} in:title,body" --state all --limit 1 \
-  --json number --jq '.[0].number // empty' 2>/dev/null || true)
+if ! number=$(gh issue list --search "${tracker_key} in:title,body" --state all --limit 1 \
+  --json number --jq '.[0].number // empty' 2>&1); then
+  echo "issue-ref.sh: gh issue list failed for tracker key ${tracker_key}: ${number}" >&2
+  exit 2
+fi
 
 if [[ -n "${number}" ]]; then
   echo "issue-ref.sh: resolved tracker key ${tracker_key} to mirrored issue #${number}" >&2
