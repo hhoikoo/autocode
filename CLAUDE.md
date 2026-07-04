@@ -27,6 +27,7 @@ Each directory documents itself via its own `CLAUDE.md`. Keep details next to th
 | Settings schema, conventions, output styles | `autocode/_config/CLAUDE.md` |
 | Provider dispatcher, provider authoring | `provider/CLAUDE.md` |
 | Local-only meta-skills | `.claude/skills/` |
+| This repo's own runtime instance (dogfood) | `.autocode/`: convention instances derived from `autocode/_config/conventions/`, shared `settings.json`, and `archive/` of completed design epics |
 | Plugin manifest | `plugins/autocode/.claude-plugin/plugin.json` |
 | Marketplace entry | `.claude-plugin/marketplace.json` |
 | CI pipeline | `.github/workflows/*.yml` |
@@ -56,10 +57,10 @@ Reference the canonical source at runtime. Don't duplicate structure: two files 
 | Settings schema | `autocode/_config/settings-schema.md` |
 | Per-convention instructions | `autocode/_config/conventions/<name>.md` |
 | Output styles | `autocode/_config/output-styles/<name>.md` (plugin path is a symlink) |
-| Plugin versions | `.claude-plugin/marketplace.json` |
+| Plugin version | `plugins/autocode/.claude-plugin/plugin.json` (`version`) |
 | CI pipeline | `.github/workflows/*.yml` |
 
-Anti-patterns: shims that restate the real definition; agents that copy a skill's workflow instead of invoking the skill; local config that mirrors `autocode/` structure.
+Anti-patterns: shims that restate the real definition; agents that copy a skill's workflow instead of invoking the skill; local config that duplicates a definition (derived convention instances under `$AUTOCODE_CONFIG_DIR` / `.autocode/` are expected outputs of `autocode/_config/conventions/`, not duplication).
 
 ## Plugin layout
 
