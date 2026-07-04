@@ -1,8 +1,8 @@
 # design/
 
-Planning and research before code lands. Skills that plan, critique, push, iterate on, and fan out design docs live here (`design-plan`, `design-plan-critique`, `design-plan-push`, `design-plan-iterate`, `design-fanout`). The `codebase-researcher` and `web-researcher` agents are read-only helpers spawned by those skills.
+Planning and research before code lands. Skills that plan, critique, push, iterate on, and fan out design docs live here (`design-plan`, `design-plan-critique`, `design-plan-push`, `design-plan-iterate`, `design-fanout`). `design-unit-author` writes `units/<slug>.md` files during plan fan-out; `codebase-researcher` and `web-researcher` are read-only helpers spawned by those skills.
 
-`design` is the stateless, re-entrant orchestrator over those per-phase skills. Given a seed or an in-flight epic it reconstructs the lifecycle stage each turn from disk, the tracker, and the open design PR, dispatches the next heavy phase (plan, critique) into a background Workflow off the main context, consumes a typed result, and advances: plan -> critique -> push -> iterate -> [user-gated merge] -> fanout -> hand off `impl --from-design <id>`. The merge is the single user-gated step; the orchestrator never merges the design PR. The per-phase skills stay individually invocable for repos without full automation access.
+`design` is the stateless, re-entrant orchestrator over those per-phase skills. Given a seed or an in-flight epic it reconstructs the lifecycle stage each turn, dispatches the next heavy phase (plan, critique) into a background Workflow off the main context, and advances toward the user-gated merge and hand-off to `impl --from-design <id>`. See `skills/design/SKILL.md` for the phase order, dispatch discipline, and gating. The per-phase skills stay individually invocable for repos without full automation access.
 
 `design-folder.md` is the canonical layout for a design epic (folder, units DAG, fan-out to issues, progress log, archive). It is a fixed spec, not a scaffolded convention; design and impl skills `@`-import it.
 

@@ -120,14 +120,14 @@ The provider resolves the set natively (GitHub: epic found by marker, units from
 
 ## PROGRESS.md
 
-Epic-level rollup, one block appended per merged unit. Written by the unit's PR at merge time (the `impl-push` path appends in-PR; the optional GH Action appends post-merge). Format:
+Epic-level rollup, one block per unit. The block is appended when the unit's PR opens (the `impl-push` path), so it rides the PR and lands on merge; the optional GH Action appends post-merge for a unit that skipped the in-PR path. The append pre-dates the PR URL, so the block does not carry one. Format:
 
 ```markdown
 # Progress: <shortname>
 
-## <slug> — <merge date>
+## <slug> — <date>
 
-PR: <url>  Unit: <sub-issue ref>
+Unit: <sub-issue ref>
 <one-paragraph what-shipped>
 Notes: <issues hit, follow-ups, gotchas worth knowing> (omit if none)
 ```
