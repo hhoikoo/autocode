@@ -36,7 +36,7 @@ The shim contains:
 
 The real file contains only the body that the model executes: workflow, format, rules, examples. No frontmatter at the top.
 
-Skill and agent names must be unique across feature-sets (the shim layer is flat). The shape check (`scripts/check-plugin-shape.sh`) enforces this, rejects real files that start with `---`, and pairs shims with real files in both directions: every shim needs a real counterpart, and every real skill/agent needs a shim. It also validates each shim's `@~/.autocode/` read line resolves, gates the `.github/actions/design-fanout/` copy as byte-identical to the canonical plugin template, asserts a `plugin.json` version, and shellchecks scripts under `autocode/` and `.github/`.
+Skill and agent names must be unique across feature-sets (the shim layer is flat). The shape check (`scripts/check-plugin-shape.sh`) enforces this, rejects real files that start with `---`, and pairs shims with real files in both directions: every shim needs a real counterpart, and every real skill/agent needs a shim. It also validates each shim's `@~/.autocode/` read line resolves, gates the `.github/actions/design-fanout/` copy as byte-identical to the canonical plugin template, and shellchecks scripts under `autocode/` and `.github/`.
 
 ## Bootstrap exceptions
 

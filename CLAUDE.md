@@ -57,7 +57,6 @@ Reference the canonical source at runtime. Don't duplicate structure: two files 
 | Settings schema | `autocode/_config/settings-schema.md` |
 | Per-convention instructions | `autocode/_config/conventions/<name>.md` |
 | Output styles | `autocode/_config/output-styles/<name>.md` (plugin path is a symlink) |
-| Plugin version | `plugins/autocode/.claude-plugin/plugin.json` (`version`) |
 | CI pipeline | `.github/workflows/*.yml` |
 
 Anti-patterns: shims that restate the real definition; agents that copy a skill's workflow instead of invoking the skill; local config that duplicates a definition (derived convention instances under `$AUTOCODE_CONFIG_DIR` / `.autocode/` are expected outputs of `autocode/_config/conventions/`, not duplication).
