@@ -38,5 +38,9 @@ Same-session best-effort. There is no cross-session pruning.
   refuses on uncommitted or unmerged work unless `--force`; confirm with the user
   before forcing.
 - Cross-session: a worktree whose PR merges in a later session is not pruned
-  automatically. It is left to the session-exit keep/remove prompt or a manual
-  `git worktree remove`. Out of scope for skills.
+  automatically by same-session teardown. General skills leave it to the
+  session-exit keep/remove prompt or a manual `git worktree remove`.
+  Exception: the `impl` epic orchestrator tracks its worktrees via tracker
+  reconciliation each turn, so pruning a merged unit's worktree is safe there and
+  in scope. It uses `git worktree remove <path>` for a worktree it did not create
+  this session (see `impl` `### Worktree pruning`).
