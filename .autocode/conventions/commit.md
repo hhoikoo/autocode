@@ -22,5 +22,5 @@ Conventional Commits with an optional issue scope. The shape mirrors the PR titl
 
 - `feat(#12): Add clone-step idempotency check`
 - `fix(#47): Refuse to clobber differing AUTOCODE_CONFIG_DIR`
-- `chore: Bump plugin version to 0.2.0`
+- `chore: Remove version from plugin manifest`
 - `refactor(#103): Split provider dispatcher into resolver and runner`

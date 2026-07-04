@@ -168,16 +168,7 @@ else
   done
 fi
 
-# 7. Plugin manifest carries a version (the CLAUDE.md SSOT row points here).
-note "checking plugin.json version field"
-plugin_manifest="plugins/autocode/.claude-plugin/plugin.json"
-if [[ ! -f "${plugin_manifest}" ]]; then
-  err "missing ${plugin_manifest}"
-elif ! grep -Eq '"version"[[:space:]]*:[[:space:]]*"[^"]+"' "${plugin_manifest}"; then
-  err "missing non-empty \"version\" in ${plugin_manifest}"
-fi
-
-# 8. Shellcheck all shell scripts under tracked locations.
+# 7. Shellcheck all shell scripts under tracked locations.
 note "shellchecking shell scripts"
 scripts=()
 while IFS= read -r f; do
