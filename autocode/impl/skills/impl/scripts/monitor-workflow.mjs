@@ -7,10 +7,12 @@ export const meta = {
 
 // args (from the impl monitor launcher): { homeDir, prs, maxConcurrent }
 // prs = [{ pr:int, slug:str, branch:str, worktree:str }]
-const HOME = args.homeDir
-const PRS = Array.isArray(args.prs) ? args.prs : []
-const MAX_CONCURRENT = typeof args.maxConcurrent === 'number' && args.maxConcurrent > 0
-  ? args.maxConcurrent
+// The runtime may deliver args as a JSON string rather than a parsed object.
+const A = typeof args === 'string' ? JSON.parse(args) : (args || {})
+const HOME = A.homeDir
+const PRS = Array.isArray(A.prs) ? A.prs : []
+const MAX_CONCURRENT = typeof A.maxConcurrent === 'number' && A.maxConcurrent > 0
+  ? A.maxConcurrent
   : 3
 
 // Resolve skill paths. pr-rebase, pr-fix-ci, pr-review live under autocode/pr/skills/.

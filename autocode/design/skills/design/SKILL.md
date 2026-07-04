@@ -20,7 +20,7 @@ Stateless, re-entrant orchestrator for the design half of the lifecycle: the mir
 
 Run every turn; never cache.
 
-**Disk:** Resolve the folder via `.autocode/design/INDEX.md`, then glob `.autocode/design/<id>-*` / `*-<shortname>`. Skip the `INDEX.md` file itself when scanning. Check for `DESIGN.md` presence and `units/` presence; check whether the folder is committed on the default branch.
+**Disk:** Resolve the folder via `.autocode/design/INDEX.md`, then glob `.autocode/design/<id>-*` / `*-<shortname>`. Skip the `INDEX.md` file itself when scanning. Check for `DESIGN.md` presence and `units/` presence; check whether the folder is committed on the default branch. When the main-checkout glob misses, before concluding `none` run `git worktree list` and glob `<wt>/.autocode/design/<id>-*` / `*-<shortname>` in each listed worktree: a planned-but-unpushed epic lives only uncommitted in its design worktree. A match there means stage `planned`, with that worktree as the working dir for the push phase.
 
 **Tracker:** `provider/run.sh issue-tracker issue-epic-list --epic <id>`. Returns `[]` -> not yet fanned out. Non-empty -> fanned out.
 

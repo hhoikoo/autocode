@@ -14,7 +14,7 @@ When the worktree carries a unit context (`.autocode/.impl-context`, written by 
 
 1. Check current dir is an autocode-managed worktree with a feature branch (not the repo's default branch):
    - `git rev-parse --abbrev-ref HEAD` should NOT match the default branch.
-   - If on default, delegate to `impl-start` to create a worktree+branch, then continue.
+   - If on default, delegate to `git-create-branch` to branch in place, then continue. Branching in place carries the uncommitted work onto the new branch. Do not delegate to `impl-start` here: it refuses to branch from a dirty default tree, and a fresh worktree would strand the changes in the original checkout.
 2. Confirm there is work to push: uncommitted changes (`git status` / `git diff`) or commits on the branch ahead of the default branch (`git diff <default-branch>...HEAD`). `impl` may have already committed the implementation at checkpoints, leaving a clean tree but commits to PR. If both are empty, stop with a note: "no changes to push".
 3. If `.autocode/.impl-context` exists, read it for `design_id`, `shortname`, `slug`, `unit_key`. Append one block to the epic rollup `.autocode/design/<design_id>-<shortname>/PROGRESS.md` in the format from the design-folder spec: `## <slug> — <today>`, then `Unit: #<unit_key>`, a one-paragraph what-shipped summary, and a `Notes:` line for anything worth knowing (drawn from `progress/<slug>.md`; omit if none). Create `PROGRESS.md` with a `# Progress: <shortname>` heading if it does not exist. This block is committed with the unit, so it lands on merge.
 4. Delegate to `git-commit` (stages the code plus `PROGRESS.md` and `progress/<slug>.md`). Verification is owned by the repo's pre-commit hooks; this skill does not run a verify step.

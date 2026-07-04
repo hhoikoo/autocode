@@ -14,7 +14,7 @@ Open a pull request for the current branch.
 
 ## Workflow
 
-1. Resolve base branch: `bash "${CLAUDE_SKILL_DIR}/scripts/resolve-base-branch.sh"`. The script prints the resolved base branch to stdout. Capture as `<base>`.
+1. Resolve base branch: `bash ~/.autocode/autocode/pr/skills/pr-create/scripts/resolve-base-branch.sh`. The script prints the resolved base branch to stdout. Capture as `<base>`.
 2. Push branch:
    - If no upstream (`git rev-parse --abbrev-ref --symbolic-full-name '@{u}'` fails): `git push -u origin HEAD`.
    - Else: `git push`.

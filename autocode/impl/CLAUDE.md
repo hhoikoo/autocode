@@ -6,7 +6,7 @@ Implementation phase. Worktree-bound skills drive a fanned-out design epic to co
 
 The `## Monitoring` section is filled by `impl-orchestrator-monitor`. The second background-workflow type is `skills/impl/scripts/monitor-workflow.mjs`: fans out one checker agent per in-review PR (via `parallel()`), each agent reads `pr-status`, runs exactly one `--auto` remediation (`pr-rebase` / `pr-fix-ci` / `pr-review`) for the first blocked condition, and returns a typed verdict (`{ pr, slug, state, action_taken, merge_ready, needs_human, reason }`). The workflow never merges.
 
-User-gated merge: main-session only, explicit user approval required. On approval, each named PR is merged via `provider/run.sh git-remote pr-merge <pr> --admin`. After each merge the cascade logic (`### Merge-driven cascade`) relaunches newly-unblocked units.
+User-gated merge: main-session only, explicit user approval required; see `skills/impl/SKILL.md` `### User-gated merge` for the merge command (no `--admin` for code PRs) and gating. On merge the cascade (`### Merge-driven cascade`) relaunches newly-unblocked units.
 
 Opt-in cron (`--watch`): off by default; offer via a plain prompt at launch. On opt-in, `CronCreate` a session-scoped periodic tick (min 1-minute, `durable` false) whose prompt re-runs the monitor and fires a `PushNotification`. Never merges; local-session is the only supported context.
 
