@@ -59,6 +59,11 @@ check_skill_shim() {
   if has_frontmatter "${real}"; then
     err "skill '${name}': real file ${real} must not carry frontmatter (only the shim does)"
   fi
+
+  # Shim body must read the located real file via its exact @~/.autocode/ path.
+  if ! grep -qF "@~/.autocode/${real}" "${shim}"; then
+    err "skill '${name}': shim ${shim} missing read line '@~/.autocode/${real}'"
+  fi
 }
 
 check_agent_shim() {
@@ -85,6 +90,11 @@ check_agent_shim() {
   if has_frontmatter "${real}"; then
     err "agent '${name}': real file ${real} must not carry frontmatter (only the shim does)"
   fi
+
+  # Shim body must read the located real file via its exact @~/.autocode/ path.
+  if ! grep -qF "@~/.autocode/${real}" "${shim}"; then
+    err "agent '${name}': shim ${shim} missing read line '@~/.autocode/${real}'"
+  fi
 }
 
 # 1. Skill shims
@@ -100,7 +110,35 @@ for shim in plugins/autocode/agents/*.md; do
   check_agent_shim "${shim}"
 done
 
-# 3. Every autocode/<feature-set>/ has a CLAUDE.md
+# 3. Reverse pass: every real skill/agent must have a shim, else it ships nowhere.
+note "checking every real skill/agent has a shim"
+for real in autocode/*/skills/*/SKILL.md; do
+  name=$(basename "$(dirname "${real}")")
+  if [[ ! -f "plugins/autocode/skills/${name}/SKILL.md" ]]; then
+    err "real skill '${name}' (${real}) has no shim under plugins/autocode/skills/${name}/SKILL.md"
+  fi
+done
+for real in autocode/*/agents/*.md; do
+  name=$(basename "${real}" .md)
+  if [[ ! -f "plugins/autocode/agents/${name}.md" ]]; then
+    err "real agent '${name}' (${real}) has no shim under plugins/autocode/agents/${name}.md"
+  fi
+done
+
+# 4. design-fanout: the plugin template is canonical; the live .github copy the
+# repo runs must stay byte-identical (workflows can't be symlinks, so gate it).
+note "checking design-fanout live copy matches canonical template"
+fanout_tmpl="plugins/autocode/templates/autocreate-design-doc-issue"
+if ! diff -r ".github/actions/design-fanout" \
+     "${fanout_tmpl}/.github/actions/design-fanout" >/dev/null 2>&1; then
+  err "design-fanout drift: .github/actions/design-fanout differs from canonical ${fanout_tmpl}/.github/actions/design-fanout"
+fi
+if ! diff ".github/workflows/autocreate-design-doc-issue.yml" \
+     "${fanout_tmpl}/.github/workflows/autocreate-design-doc-issue.yml" >/dev/null 2>&1; then
+  err "design-fanout drift: .github/workflows/autocreate-design-doc-issue.yml differs from canonical ${fanout_tmpl}/.github/workflows/autocreate-design-doc-issue.yml"
+fi
+
+# 5. Every autocode/<feature-set>/ has a CLAUDE.md
 note "checking feature-set CLAUDE.md files"
 for dir in autocode/*/; do
   if [[ ! -f "${dir}CLAUDE.md" ]]; then
@@ -108,7 +146,7 @@ for dir in autocode/*/; do
   fi
 done
 
-# 4. Engineering-minimalism invariants survive in the forced output style.
+# 6. Engineering-minimalism invariants survive in the forced output style.
 # The ladder reaches plugin users only through concise.md (force-for-plugin +
 # the per-agent read line); a careless edit must not silently gut it.
 note "checking leanness invariants in concise.md"
@@ -130,12 +168,12 @@ else
   done
 fi
 
-# 5. Shellcheck all shell scripts under tracked locations.
+# 7. Shellcheck all shell scripts under tracked locations.
 note "shellchecking shell scripts"
 scripts=()
 while IFS= read -r f; do
   scripts+=("${f}")
-done < <(find provider plugins/autocode .githooks scripts -type f -name '*.sh' 2>/dev/null | sort)
+done < <(find provider plugins/autocode autocode .github .githooks scripts -type f -name '*.sh' 2>/dev/null | sort)
 
 if ! command -v shellcheck >/dev/null 2>&1; then
   err "shellcheck not installed; install it (brew install shellcheck) and re-run"
