@@ -38,7 +38,7 @@ End with `net: -<N> lines, -<M> deps possible.` Nothing to cut: `Lean already. S
 
 - Read-only. List findings, apply nothing. Acting on them is the user's call.
 - Leanness only. Correctness bugs, security holes, and performance go to `impl-critique`, not here.
-- Never flag input validation at trust boundaries, security, data-loss handling, accessibility, or a single smoke test / assert-based self-check; those are the leanness minimum, not bloat.
+- Never flag the `Lazy is not careless` carve-outs (active style) or a single smoke test / assert-based self-check; those are the leanness minimum, not bloat.
 - Every finding cites a concrete path; no citation, no finding.
 
 $ARGUMENTS

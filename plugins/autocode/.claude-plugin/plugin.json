@@ -1,5 +1,6 @@
 {
   "name": "autocode",
+  "version": "0.1.0",
   "description": "Skills, agents, hooks, and provider scripts for the autocode SDLC workflow.",
   "author": { "name": "autocode" },
   "license": "Apache-2.0",

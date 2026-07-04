@@ -53,7 +53,7 @@ Check each file under `$AUTOCODE_CONFIG_DIR/`:
 3. **Gitignore and gitattributes.** Verify three rules, each idempotent (append the line if missing). Report only when changed.
    - `settings.local.json` in `$AUTOCODE_CONFIG_DIR/.gitignore`.
    - the transient impl state files (`.impl-context`, `.progress-last-sha`; canonical list in the design-folder spec) in `<repo-root>/.autocode/.gitignore`. Default config dir: same file. Relocated: reconcile only if `<repo-root>/.autocode/` exists; the `impl-start` backstop covers the not-yet-created case.
-   - `.autocode/design/**/PROGRESS.md merge=union` in `<repo-root>/.gitattributes` (always the repo root; `design-folder.md:7-9,42` is the glob justification). Same rule string that `/autocode-setup` writes; idempotent — append if missing, create the file if absent. Report only when changed.
+   - `.autocode/design/**/PROGRESS.md merge=union` in `<repo-root>/.gitattributes` (always the repo root; the `## Location and naming` and `## Contents` sections of `design-folder.md` are the glob justification). Same rule string that `/autocode-setup` writes; idempotent — append if missing, create the file if absent. Report only when changed.
 
 If `settings.local.json` does not exist and no local keys are required, leave it absent (a fresh repo with no local wiring is valid).
 

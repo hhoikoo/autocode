@@ -5,3 +5,4 @@ init:
 
 check:
 	@scripts/check-plugin-shape.sh
+	@scripts/test-progress-union.sh

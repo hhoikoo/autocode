@@ -16,9 +16,9 @@ For agent, skill, and hook authoring under `.claude/` and `autocode/`. Frontmatt
 | Agent | `autocode/<feature-set>/agents/<name>.md` | `plugins/autocode/agents/<name>.md` |
 | Local-only skill | `.claude/skills/<name>/SKILL.md` | (none) |
 | Local-only agent | `.claude/agents/<name>.md` | (none) |
-| Hooks | `.claude/settings.json` | (none) |
+| Hooks | `.claude/settings.json` (repo-local dev hooks; currently none) | `plugins/autocode/hooks/hooks.json` |
 
-Real definitions are grouped under a feature-set directory (`git`, `issue`, `pr`, `workflow`, `design`, `review`, `core`, `util`, ...). Shims under `plugins/autocode/` are flat (the plugin manifest has no feature-set concept), so skill/agent names must be unique across all feature-sets.
+Real definitions are grouped under a feature-set directory (`_config`, `design`, `git`, `impl`, `issue`, `pr`, `util`; see each `autocode/*/CLAUDE.md`). Shims under `plugins/autocode/` are flat (the plugin manifest has no feature-set concept), so skill/agent names must be unique across all feature-sets.
 
 Frontmatter lives only in the shim. Real files at `autocode/<feature-set>/...` are body-only: no `---` block, no `name`, no `description`, no `model`. The shim carries the frontmatter Claude Code parses at session start plus a one-line body instructing the model to read the real file at `@~/.autocode/autocode/<feature-set>/<path>`. The shape check in `scripts/check-plugin-shape.sh` rejects real files that start with `---`. At install time `/autocode-setup` clones this repo to `~/.autocode/`; during development a symlink there is sufficient.
 

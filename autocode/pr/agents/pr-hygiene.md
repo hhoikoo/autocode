@@ -41,7 +41,7 @@ Use these to scope the analysis. Read the full branch diff only if the PR descri
    - **Docs update recommended**: for each file, name the section and describe the specific change. Do not apply edits; the caller approves.
 6. **PR description update**. Compare the current body against the scoped diff.
    - If current, output "PR description is current".
-   - If stale: run `git diff <base>...HEAD` for the full branch diff. Draft a replacement body that reads as if the PR were freshly opened (no changelog, no patch notes). Write it to `$(mktemp -d -t autocode-pr-hygiene)/body.md`. Apply via:
+   - If stale: run `git diff <base>...HEAD` for the full branch diff. Draft a replacement body that reads as if the PR were freshly opened (no changelog, no patch notes). Write it to `$(mktemp -d "${TMPDIR:-/tmp}/autocode-pr-hygiene.XXXXXX")/body.md`. Apply via:
      ```bash
      provider/run.sh git-remote pr-body-edit <pr-number> <path>
      ```

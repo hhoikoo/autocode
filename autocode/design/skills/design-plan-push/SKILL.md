@@ -14,12 +14,13 @@ Layout: `@~/.autocode/autocode/design/design-folder.md`.
 
 - If the arg looks like a path: refuse (temp plans not supported here).
 - Else glob `.autocode/design/<id>-*` or `*-<shortname>`. Resolve to one folder.
-- On no match, ask the user via `AskUserQuestion`.
+- On no match in the main checkout, run `git worktree list` and glob `<wt>/.autocode/design/<id>-*` / `*-<shortname>` in each worktree: a fresh session's design folder lives uncommitted in the plan worktree. Use that worktree as the working dir.
+- On no match anywhere, ask the user via `AskUserQuestion`.
 
 ## Workflow
 
 1. Locate `.autocode/design/<id>-<shortname>/`. Confirm `DESIGN.md` exists. Stop on no match.
-2. Ensure a worktree + docs branch per `@~/.autocode/autocode/_config/guides/worktree.md`, then delegate to `git-create-branch "docs: design <shortname>"` (skipped if `design-plan` already created the worktree this session). Run this in the same session as `design-plan`: the design folder is uncommitted in that worktree, so on the default branch in a fresh session the glob below will not find it.
+2. Ensure a worktree + docs branch per `@~/.autocode/autocode/_config/guides/worktree.md`, then delegate to `git-create-branch "docs: design <shortname>"` (skipped if `design-plan` already created the worktree this session). In a fresh session the design folder is uncommitted in the plan worktree; Discovery above locates it via `git worktree list`, so operate in that worktree.
 3. Stage the design folder: `git add .autocode/design/<id>-<shortname>/`.
 4. Delegate to `git-commit` (forward a context note describing the design).
 5. Compose the PR body per the canonical recipe in `@~/.autocode/autocode/design/design-pr-body.md`, passing `<folder>` (from step 1) and the resolved base. That recipe owns the rendered-design link and the template fill, so the body stays identical to what `pr-hygiene` recomposes on later refresh. Capture the temp path it writes as `body`.

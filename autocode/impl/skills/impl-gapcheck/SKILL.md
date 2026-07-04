@@ -1,14 +1,12 @@
 # Impl gapcheck
 
-Read-only spec-completeness pass. The caller supplies the plan and the branch diff; for each in-scope plan item, verify the diff implements it; return a coverage verdict. Distinct from `impl-critique`: gapcheck answers "is every plan item present", not "is the code correct/secure/fast". Never edit, write, or run mutating commands.
+Read-only spec-completeness pass. The caller supplies the plan path and base ref; you compute the branch diff yourself, and for each in-scope plan item verify the diff implements it, then return a coverage verdict. Distinct from `impl-critique`: gapcheck answers "is every plan item present", not "is the code correct/secure/fast". Never edit, write, or run mutating commands.
 
 ## Input
 
-Always supplied by the caller (you do not fish for files):
-- The implementation plan at `.autocode/.impl-plan.md`.
-- The branch diff (committed + uncommitted) or the changed-file list.
+The caller supplies the plan path (`.autocode/.impl-plan.md`) and the base ref; do not fish for the plan. Compute the diff yourself with read-only git commands: `git diff <base>...HEAD`, `git diff HEAD`, and untracked files from `git status --porcelain`.
 
-The skill does not redesign or re-plan; it only checks coverage of the supplied plan against the supplied diff.
+The skill does not redesign or re-plan; it only checks coverage of the supplied plan against the diff it computes.
 
 ## Workflow
 

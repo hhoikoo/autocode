@@ -1,9 +1,9 @@
 ---
 name: autocode-test
 description: Test in-progress autocode changes inside ~/.autocode/ without polluting it with uncommitted work. Pushes the current feature branch and checks it out inside ~/.autocode/.
-disable-model-invocation: false
+disable-model-invocation: true
 user-invocable: true
-allowed-tools: Bash Read AskUserQuestion
+allowed-tools: Bash, Read, AskUserQuestion
 ---
 
 # /autocode-test

@@ -41,7 +41,7 @@ if [[ -n "${repo_override}" ]]; then
   repo_args=(--repo "${owner}/${name}")
 fi
 
-# Single call per check (DESIGN decision 7 / runtime-flow step 5).
+# One gh call per check keeps the monitor loop cheap.
 raw=$(gh pr view "${pr_number}" ${repo_args[@]+"${repo_args[@]}"} \
   --json state,mergeable,mergeStateStatus,statusCheckRollup,reviewDecision,isDraft,url,number \
   2>/dev/null) || {

@@ -20,13 +20,13 @@ Stateless, re-entrant orchestrator for the design half of the lifecycle: the mir
 
 Run every turn; never cache.
 
-**Disk:** Resolve the folder via `.autocode/design/INDEX.md`, then glob `.autocode/design/<id>-*` / `*-<shortname>`. Skip the `INDEX.md` file itself when scanning. Check for `DESIGN.md` presence and `units/` presence; check whether the folder is committed on the default branch.
+**Disk:** Resolve the folder via `.autocode/design/INDEX.md`, then glob `.autocode/design/<id>-*` / `*-<shortname>`. Skip the `INDEX.md` file itself when scanning. Check for `DESIGN.md` presence and `units/` presence; check whether the folder is committed on the default branch. When the main-checkout glob misses, before concluding `none` run `git worktree list` and glob `<wt>/.autocode/design/<id>-*` / `*-<shortname>` in each listed worktree: a planned-but-unpushed epic lives only uncommitted in its design worktree. A match there means stage `planned`, with that worktree as the working dir for the push phase.
 
 **Tracker:** `provider/run.sh issue-tracker issue-epic-list --epic <id>`. Returns `[]` -> not yet fanned out. Non-empty -> fanned out.
 
 **Open design PR:** The design branch is `docs/design-<short>` (created in the plan phase via `git-create-branch`; `design-plan-push` only re-creates it as a fresh-session fallback). To detect an open PR: call `provider/run.sh git-remote pr-find --branch docs/design-<short>` from the design worktree. A returned `state: open` is the in-review signal. As a fallback use `provider/run.sh git-remote pr-view` against a known PR number.
 
-**INDEX.md `status` caveat:** `status` is a coarse two-state flag (`active`/`archived`; `design-folder.md` lines 30-31). It does not distinguish pre-archive stages. Fine-grained stage comes from disk + tracker + PR, not `INDEX.md`.
+**INDEX.md `status` caveat:** `status` is a coarse two-state flag (`active`/`archived`; the `## INDEX.md` section of `design-folder.md`). It does not distinguish pre-archive stages. Fine-grained stage comes from disk + tracker + PR, not `INDEX.md`.
 
 ### Stages
 
@@ -52,7 +52,7 @@ fanned-out -> hand off: invoke `impl --from-design <id>` (the 0002 orchestrator)
 
 **`none`:** Launch `design-plan-workflow.mjs` off-context via the Workflow tool (not inline, not a subagent; the workflow can fan out research and the main session preserves the `AskUserQuestion` capability for the gate). Resolve `homeDir` (`echo "$HOME"`) and `repoRoot` (`git rev-parse --show-toplevel`); launch with `args: { homeDir, repoRoot, seed, temp }`. The script fails fast (throws, ~0 cost) if `seed`/`homeDir`/`repoRoot` arrive empty, so a dropped arg surfaces as a workflow error rather than a billed no-op run. Consume `{ folder, id, units[], underspecified[], open_qs }`. Surface any `underspecified` items or `open_qs`; on none, continue to critique.
 
-**`planned` -> critique:** Launch `design-critique-workflow.mjs` off-context via the Workflow tool (bounded to 5 iterations) with `args: { homeDir, repoRoot, folder }` (`folder` is the absolute design-folder path). The script fails fast if any arrive empty. Consume `{ status, iterations_run, files_modified, needs_human, needs_human_reasons[] }`. Gate the push transition on `status`: only `status: done` with `needs_human: false` advances to push. On `status: error` or `status: cap_reached`, surface the result and stop. On `needs_human: true`, surface `needs_human_reasons[]` and stop; re-invocation re-runs critique (idempotent).
+**`planned` -> critique:** Launch `design-critique-workflow.mjs` off-context via the Workflow tool (bounded to 5 iterations) with `args: { homeDir, repoRoot, folder }` (`folder` is the absolute design-folder path). The script fails fast if any arrive empty. Consume `{ status, iterations_run, files_modified, needs_human, needs_human_reasons[] }`. Gate the push transition on `status`: only `status: done` with `needs_human: false` advances to push. On `status: error` or `status: cap_reached`, surface the result and stop. On `needs_human: true`, the workflow could not close some questions without a person: run `design-grill <folder> --seed <needs_human_reasons>` on-context (the orchestrator is main-session, so `AskUserQuestion` works here; the workflow could not). Grill interviews the user and writes the answers into `DESIGN.md`, then stop; re-invocation re-runs critique (idempotent), which now sees the resolutions.
 
 **`planned` (critique clean) -> push:** Run `design-plan-push` (light phase, may stay in-session). Consume `{ pr_url, branch }`. Stage becomes `in-review`.
 
@@ -79,13 +79,13 @@ Typed `--auto` returns consumed by this orchestrator:
 - `design-iterate-auto`: `{ applied, replied, needs_human }`.
 - `design-fanout-auto`: `{ epic_key, sub_issues[] }`.
 
-These workflow scripts and `--auto` modes are authored by their respective sibling units; this skill only consumes them.
+This skill only consumes these; it defines none of them.
 
 ### Edge cases
 
 - **Ambiguous id/shortname:** Multiple folders or INDEX rows match -> `AskUserQuestion` before dispatching.
 - **Plan returns `underspecified`/`open_qs`:** Surface them; user re-invokes `/design <id>` to re-enter at `planned`.
-- **Critique `needs_human` or error:** Surface `needs_human_reasons[]` (or `status: error`/`cap_reached` details) and stop; re-invoke re-runs critique (idempotent) or proceeds if issues are resolved.
+- **Critique `needs_human` or error:** On `needs_human`, run `design-grill <folder> --seed <needs_human_reasons>` on-context to interview the user; answers land in `DESIGN.md`, then stop (re-invoke re-runs critique, which sees them). On `status: error`/`cap_reached`, surface the details and stop.
 - **Contested review comments:** Iterate applies high-confidence ones, surfaces the rest; merge gate remains the user's.
 - **Fanout already done by the GH Action:** `issue-epic-list` returns non-empty -> skip `design-fanout`, proceed straight to hand-off (`design-fanout` is idempotent by body marker).
 - **`--temp`:** Run only the plan phase and stop; point the user at `/design-plan-critique <dir>` for next steps.
@@ -97,12 +97,10 @@ These workflow scripts and `--auto` modes are authored by their respective sibli
 
 ## Rules
 
-- Stateless and re-entrant: reconstruct the stage each turn from disk + tracker + open design PR; store nothing durable.
-- Off-context dispatch: heavy phases (plan, critique) run as background Workflows launched directly via the Workflow tool; never inline a phase skill, never run a phase as a subagent.
-- The orchestrator never merges the design PR. The merge is the single user-gated hard stop.
-- Hybrid gating: plan/critique/push/iterate run auto; hard-stop at merge; fanout runs auto post-merge. On `needs_human` from critique or iterate, surface reasons and stop.
-- Hand-off boundary: at `fanned-out`, invoke `impl --from-design <id>` (or suggest it when absent); `/design` owns only the design half.
-- Manual fallback: every phase skill stays individually invocable; this skill adds no provider, no workflow script, no settings key.
-- `--temp`: no worktree, no id, no PR, no fanout; refuse to advance past plan.
+Constraints not already stated in the Workflow section:
+
+- Store nothing durable; the stage is always reconstructed, never cached.
+- On `needs_human` from critique, run `design-grill` on-context to close the reasons with the user; from iterate, surface the reasons and stop.
+- This skill adds no provider script, no workflow script, and no settings key: it only orchestrates the existing phase skills, each of which stays individually invocable.
 
 $ARGUMENTS

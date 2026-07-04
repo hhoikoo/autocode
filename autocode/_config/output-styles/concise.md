@@ -92,7 +92,7 @@ Never use dash characters as sentence breaks, definition separators, or parenthe
 
 - Straight quotes (`'`, `"`), not curly.
 - Diacritics only in user-facing natural-language strings.
-- No manual line wrapping in prose. Markdown / docs / plans wrap at semantic boundaries only (paragraph breaks, list items). Exception: commit message bodies wrap at 72.
+- No manual line wrapping in prose. Markdown / docs / plans wrap at semantic boundaries only (paragraph breaks, list items). Commit bodies follow the repo commit convention's wrap rule (see `### Commits`).
 
 ### Headers and bold
 
@@ -116,9 +116,11 @@ Never use dash characters as sentence breaks, definition separators, or parenthe
 
 ### Commits
 
-- Conventional Commits: `<type>(<scope>): <imperative summary>`. Cap 72, aim 50.
+When a repo commit convention exists (`$AUTOCODE_CONFIG_DIR/conventions/commit.md`), it is the source of truth for subject format and body wrapping; the defaults below apply only absent one.
+
+- Conventional Commits: `<type>(<scope>): <imperative summary>`. Cap subject at 72, aim 50.
 - Imperative (`add`, not `added`). No trailing period.
-- Body only when `why` not in diff. Wrap at 72.
+- Body only when `why` not in diff. No manual line wrapping.
 - No phase numbers in subject or body (`feat: phase 4: migrate users`).
 - Never include: `This commit does X`, `I`, `we`, `now`, `currently`, `as requested by` (use `Co-authored-by` trailer), AI attribution, emoji.
 - Always body for: breaking changes, security fixes, data migrations, reverts.

@@ -27,7 +27,7 @@ if (!HOME || !REPO) throw new Error('design-plan: args.homeDir/repoRoot not deli
 
 // Path helpers — agents read canonical bodies by absolute path;
 // the skill/agent catalog is not reliably visible to workflow agents.
-// Mirroring impl-workflow.mjs:19,29.
+// Mirrors impl-workflow.mjs path helpers.
 const designAgent = (name) => `${HOME}/.autocode/autocode/design/agents/${name}.md`
 const designSkill = (name) => `${HOME}/.autocode/autocode/design/skills/${name}/SKILL.md`
 const designFolder = `${HOME}/.autocode/autocode/design/design-folder.md`
@@ -101,7 +101,7 @@ const SYNTH_SCHEMA = {
   required: ['folder', 'id', 'shortname', 'worktree', 'units', 'open_qs', 'flat'],
 }
 
-// design-unit-author contract (DESIGN.md decision 6).
+// design-unit-author contract.
 // Usable via schema (typed object) or inline prose (same three fields).
 const UNIT_SCHEMA = {
   type: 'object',

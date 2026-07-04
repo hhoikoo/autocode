@@ -30,7 +30,7 @@ The epic has no `in-review` state: there is no aggregate epic PR. Each unit has 
 
 - Always present the derived provider mapping (how each of the four internal states is represented in the tracker) to the user and get explicit approval before writing the convention file, even when inspection or the default settled the answer.
 - Ask the user to confirm or override the provider mapping for each of the four internal states.
-- Ask whether epic tickets should be the only ones registered to a sprint (sub-issues excluded, as in the design notes).
+- Ask whether epic tickets should be the only ones registered to a sprint (sub-issues excluded).
 
 ## Default
 

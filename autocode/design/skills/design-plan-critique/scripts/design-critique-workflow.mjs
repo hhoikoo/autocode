@@ -79,8 +79,7 @@ while (iterations < MAX_ITERATIONS) {
   const q = await agent(
     `Read the design at ${FOLDER} (DESIGN.md and every units/*.md, or just DESIGN.md if no units/). ` +
       follow(CRITIQUE,
-        "Apply only its question-generation heuristics (SKILL step 2: untested assumptions, interface shapes, " +
-        'error modes, concurrency, security, data shape, ordering invariants, unit decomposition and depends-on edges). ' +
+        'Apply only its question-generation heuristics (SKILL step 2). ' +
         "Generate this pass's follow-up questions only. Account for resolutions already in the ## Critique log so you " +
         'do not re-raise closed questions. Return [] when nothing new remains.'),
     { label: `question-i${iterations}`, phase: 'Question', model: 'opus', schema: QUESTION_SCHEMA },

@@ -22,7 +22,7 @@ Resolve `project` in this order:
 2. **Absolute path** (starts with `/`): use as-is.
 3. **Git URL or `gh:owner/repo`**: clone shallow to a temp dir.
    ```bash
-   dir=$(mktemp -d -t autocode-research)
+   dir=$(mktemp -d "${TMPDIR:-/tmp}/autocode-research.XXXXXX")
    git clone --depth 1 "<url>" "${dir}" \
      || gh repo clone owner/repo "${dir}"
    echo "${dir}"
