@@ -26,7 +26,7 @@ Run every turn; never cache.
 
 **Open design PR:** The design branch is `docs/design-<short>` (created in the plan phase via `git-create-branch`; `design-plan-push` only re-creates it as a fresh-session fallback). To detect an open PR: call `provider/run.sh git-remote pr-find --branch docs/design-<short>` from the design worktree. A returned `state: open` is the in-review signal. As a fallback use `provider/run.sh git-remote pr-view` against a known PR number.
 
-**INDEX.md `status` caveat:** `status` is a coarse two-state flag (`active`/`archived`; `design-folder.md` lines 30-31). It does not distinguish pre-archive stages. Fine-grained stage comes from disk + tracker + PR, not `INDEX.md`.
+**INDEX.md `status` caveat:** `status` is a coarse two-state flag (`active`/`archived`; the `## INDEX.md` section of `design-folder.md`). It does not distinguish pre-archive stages. Fine-grained stage comes from disk + tracker + PR, not `INDEX.md`.
 
 ### Stages
 
@@ -79,7 +79,7 @@ Typed `--auto` returns consumed by this orchestrator:
 - `design-iterate-auto`: `{ applied, replied, needs_human }`.
 - `design-fanout-auto`: `{ epic_key, sub_issues[] }`.
 
-These workflow scripts and `--auto` modes are authored by their respective sibling units; this skill only consumes them.
+This skill only consumes these; it defines none of them.
 
 ### Edge cases
 
@@ -97,12 +97,10 @@ These workflow scripts and `--auto` modes are authored by their respective sibli
 
 ## Rules
 
-- Stateless and re-entrant: reconstruct the stage each turn from disk + tracker + open design PR; store nothing durable.
-- Off-context dispatch: heavy phases (plan, critique) run as background Workflows launched directly via the Workflow tool; never inline a phase skill, never run a phase as a subagent.
-- The orchestrator never merges the design PR. The merge is the single user-gated hard stop.
-- Hybrid gating: plan/critique/push/iterate run auto; hard-stop at merge; fanout runs auto post-merge. On `needs_human` from critique or iterate, surface reasons and stop.
-- Hand-off boundary: at `fanned-out`, invoke `impl --from-design <id>` (or suggest it when absent); `/design` owns only the design half.
-- Manual fallback: every phase skill stays individually invocable; this skill adds no provider, no workflow script, no settings key.
-- `--temp`: no worktree, no id, no PR, no fanout; refuse to advance past plan.
+Constraints not already stated in the Workflow section:
+
+- Store nothing durable; the stage is always reconstructed, never cached.
+- On `needs_human` from critique or iterate, surface the reasons and stop.
+- This skill adds no provider script, no workflow script, and no settings key: it only orchestrates the existing phase skills, each of which stays individually invocable.
 
 $ARGUMENTS

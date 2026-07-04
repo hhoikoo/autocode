@@ -26,8 +26,9 @@ set -euo pipefail
 
 ## Naming
 
-- Format: `<verb>-<noun>.sh` (`create-branch.sh`, `list-issues.sh`).
-- Group by domain (e.g. `autocode/scripts/`, `autocode/provider/<type>/<provider>/`) or by skill (`autocode/skills/<skill>/scripts/`).
+- Non-provider scripts: `<verb>-<noun>.sh` (`install-git-hooks.sh`, `resolve-base-branch.sh`).
+- Provider feature scripts use `<noun>-<verb>.sh` per `provider/CLAUDE.md` (`issue-create.sh`, `pr-body-edit.sh`); the noun matches the provider feature name.
+- Location by domain: repo-root `scripts/`, `provider/<provider-type>/<provider>/`, or by skill `autocode/<feature-set>/skills/<skill>/scripts/` (with its shim `plugins/autocode/skills/<skill>/scripts/`).
 
 ## Security
 

@@ -15,7 +15,7 @@ Always supplied by the caller (you do not fish for files):
 - `performance`: hot-path allocations, N+1 queries, resource leaks, accidental quadratic behavior.
 - `observability`: missing or misleading logging, metrics, tracing on new paths.
 - `standards`: violations of the supplied repo conventions only (not generic style).
-- `leanness`: over-engineering. Reinvented stdlib, deps doing what the platform ships, abstractions with one implementation, dead flexibility, code that shrinks with no behavior change. Lead the claim with a tag: `delete` / `stdlib` / `native` / `yagni` / `shrink`. Never flag validation at trust boundaries, security, data-loss handling, accessibility, or the single smoke test; those are the minimum, not bloat.
+- `leanness`: over-engineering. Reinvented stdlib, deps doing what the platform ships, abstractions with one implementation, dead flexibility, code that shrinks with no behavior change. Lead the claim with a tag: `delete` / `stdlib` / `native` / `yagni` / `shrink`. Never flag the `Lazy is not careless` carve-outs (active style) or the single smoke test; those are the minimum, not bloat.
 
 ## Workflow
 

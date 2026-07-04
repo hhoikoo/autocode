@@ -72,7 +72,7 @@ After writing, reconcile three rules. Each is idempotent: create the file with t
 
 - `settings.local.json` in `$AUTOCODE_CONFIG_DIR/.gitignore` (the config dir).
 - the transient impl state files (`.impl-context`, `.progress-last-sha`; canonical list in the design-folder spec, `~/.autocode/autocode/design/design-folder.md`) in `<repo-root>/.autocode/.gitignore`, the repo-root artifact dir the impl hook and design skills key on (always there, not via `AUTOCODE_CONFIG_DIR`). When the config dir is the default `<repo-root>/.autocode/`, this is the same file and both rules land in it. When it is relocated, only reconcile `<repo-root>/.autocode/.gitignore` if that dir already exists; otherwise leave it to the `impl-start` backstop, which creates the dir on first use.
-- `.autocode/design/**/PROGRESS.md merge=union` in `<repo-root>/.gitattributes` (always the repo root, regardless of `AUTOCODE_CONFIG_DIR`, because `PROGRESS.md` always lives under repo-root `.autocode/`; `design-folder.md:7-9,42` is the glob justification). No "only if the dir exists" guard — the repo root always exists. Report only when changed.
+- `.autocode/design/**/PROGRESS.md merge=union` in `<repo-root>/.gitattributes` (always the repo root, regardless of `AUTOCODE_CONFIG_DIR`, because `PROGRESS.md` always lives under repo-root `.autocode/`; the `## Location and naming` and `## Contents` sections of `design-folder.md` are the glob justification). No "only if the dir exists" guard — the repo root always exists. Report only when changed.
 
 ## Step 4: Scaffold conventions
 

@@ -27,7 +27,7 @@ Rebase the current branch onto its base and resolve conflicts.
      - Next free id = highest id across both sides + 1, zero-padded to 4 digits.
      - `git mv .autocode/design/<old-id>-<shortname> .autocode/design/<new-id>-<shortname>`.
      - Resolve `INDEX.md` to the base rows plus this branch's row carrying the new id. `git add` the renamed folder and `INDEX.md`.
-   - **PROGRESS.md conflict (backstop).** File format: one `# Progress: <shortname>` header followed by `## <slug> — <date>` blocks (see `design-folder.md` lines 121-135). This branch is triggered when `.gitattributes` lacks the `merge=union` driver (the driver, scaffolded by sibling unit `progress-union-gitattributes`, resolves the conflict before the file enters the conflicted set; on repos without it git surfaces the conflict and this branch resolves it):
+   - **PROGRESS.md conflict (backstop).** File format: one `# Progress: <shortname>` header followed by `## <slug> — <date>` blocks (see the `## PROGRESS.md` section of `design-folder.md`). This branch is triggered when `.gitattributes` lacks the `merge=union` driver for `.autocode/design/**/PROGRESS.md` (scaffolded by `/autocode-setup`): with the driver, git resolves this before the file enters the conflicted set; on repos without it git surfaces the conflict and this branch resolves it:
      - Keep the single `# Progress:` header once.
      - Concatenate all `## <slug> — <date>` blocks from both base and incoming sides.
      - Strip all conflict markers (`<<<<<<<`, `=======`, `>>>>>>>`).
