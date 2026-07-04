@@ -8,6 +8,11 @@ set -euo pipefail
 # where kind is "review" or "issue".
 
 pr_number="${1:?Usage: pr-comment-list.sh <pr-number>}"
+shift
+if [[ $# -gt 0 ]]; then
+  echo "pr-comment-list.sh: unexpected argument: $1" >&2
+  exit 1
+fi
 repo=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 
 review=$(gh api --paginate "repos/${repo}/pulls/${pr_number}/comments" \

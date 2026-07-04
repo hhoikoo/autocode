@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Fetch unresolved review-thread ids for a PR.
 # Usage: pr-thread-list.sh <pr-number>
-# Stdout: JSON array of { id, path, body } for each unresolved thread.
+# Stdout: JSON array of { id, path, body_preview } for each unresolved thread.
 
 pr_number="${1:?Usage: pr-thread-list.sh <pr-number>}"
 owner=$(gh repo view --json owner -q .owner.login)
@@ -39,6 +39,6 @@ query($owner: String!, $name: String!, $number: Int!) {
     | {
         id,
         path: (.comments.nodes[0].path // ""),
-        body: ((.comments.nodes[0].body // "")[:80])
+        body_preview: ((.comments.nodes[0].body // "")[:80])
       }
   ]'

@@ -55,18 +55,37 @@ PR lifecycle on the git hosting side: create, view, edit body, link to issue, re
 
 `body_preview` is a short preview (first ~80 chars) of the first comment in the thread, for diagnostics.
 
+### Status
+
+```json
+{
+  "number": <integer>,
+  "url": "<string>",
+  "state": "open|closed|merged",
+  "isDraft": <boolean>,
+  "mergeable": "<string>",
+  "mergeStateStatus": "<string>",
+  "ci": "none|passing|failing|pending",
+  "reviewDecision": "none|approved|changes_requested|review_required"
+}
+```
+
+`ci` is a rollup the script derives from the host's per-check states. `mergeable` and `mergeStateStatus` are the host's own lowercased values. Keys `isDraft`, `mergeStateStatus`, `reviewDecision` are provider-native passthrough (camelCase), pinned here rather than renamed.
+
 ## Required scripts
 
 | Script | Args | Stdout |
 |---|---|---|
 | `pr-view.sh` | `[--json <fields>] [<pr>]` | JSON of requested fields |
+| `pr-find.sh` | `<issue-key> [-g <owner/repo>]` or `--branch <branch> [-g <owner/repo>]` | `{ number, state }` on match, `{}` on no match |
+| `pr-status.sh` | `<pr> [-g <owner/repo>]` | `Status` JSON |
 | `pr-create.sh` | `--title <t> --body-file <p> [--base <b>] [--assignee <a>] [--no-review]` | PR URL on a single line |
 | `pr-body-edit.sh` | `<pr> <body-file>` | none |
 | `pr-merge.sh` | `<pr> [--admin] [--squash\|--merge\|--rebase]` | none |
 | `pr-issue-link.sh` | `<pr> <issue-id>` | none |
 | `issue-ref.sh` | `<tracker-key>` | git-remote issue number to close, or empty |
 | `pr-review-request.sh` | `<pr> <reviewer>...` | none |
-| `pr-comment-list.sh` | `<pr> [--kind review\|issue\|all]` | `Comment[]` JSON |
+| `pr-comment-list.sh` | `<pr>` | `Comment[]` JSON |
 | `pr-comment-reply.sh` | `<pr> <comment-id> <text>` | none |
 | `pr-thread-list.sh` | `<pr>` | `Thread[]` JSON (unresolved only) |
 | `pr-thread-resolve.sh` | `<thread-id>...` | none |
@@ -75,12 +94,14 @@ PR lifecycle on the git hosting side: create, view, edit body, link to issue, re
 ### Notes
 
 - `pr-view.sh` defaults to the PR for the current branch when `<pr>` is omitted. With `--json`, stdout is JSON containing the requested fields.
+- `pr-find.sh` maps a unit issue key (or `--branch`) to its PR. Issue-key and `--branch` are mutually exclusive. A leading `#` on the key is stripped. Issue-key mode searches `in:body #<key>` (eventually consistent, so a just-opened PR may not be found yet) and, where available, filters on the host's closing-issue references. No match is not a failure: emits `{}` with exit `0`. `-g <owner/repo>` overrides repo detection.
+- `pr-status.sh` emits one `Status` object. Missing PR exits `1`. `-g <owner/repo>` overrides repo detection.
 - `pr-create.sh` `--no-review` opens the PR without the script requesting any reviewers (no `--reviewer` passed to gh). Server-side CODEOWNERS auto-request, when the repo enables it, is outside gh's control and is not suppressed.
 - `pr-issue-link.sh` is idempotent. It detects existing `close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved #N` references (case-insensitive, word-boundary anchored) and skips when present. When missing, it appends a canonical `Closes #N` line.
 - `issue-ref.sh` bridges the issue-tracker key to a git-remote-native close target. A close reference only auto-closes when it names a git-remote issue number, which differs from the tracker key when the tracker is not the git remote. The GitHub implementation echoes a numeric key as-is (GitHub Issues is the tracker), and for a non-numeric key (e.g. Jira `PROJ-123`) searches for a mirrored GitHub issue, emitting its number or empty. Empty stdout with exit `0` means "nothing on this remote to close" and is not a failure; callers skip the link step.
 - `pr-merge.sh` default method is `--squash`; `--admin` bypasses required reviews and checks. Idempotent: an already-merged PR exits `0` as a no-op.
 - `pr-review-request.sh` tolerates reviewers already on the PR without error.
-- `pr-comment-list.sh` default `--kind` is `all`. The merged list discriminates via `.kind`.
+- `pr-comment-list.sh` returns all comments (review-line + issue-style) merged into one array; callers discriminate via `.kind`. Rejects any extra argument with exit `1`.
 - `pr-comment-reply.sh` posts a threaded reply to a review comment. Falls back to a regular issue-style PR comment if the threaded-reply API rejects the target id.
 - `pr-thread-list.sh` returns only unresolved threads. Empty array when all threads are resolved.
 - `pr-thread-resolve.sh` tolerates already-resolved threads.
