@@ -8,3 +8,8 @@ Downgraded the read-only `codebase-researcher` dispatches in the two design work
 
 Unit: #72
 Added a `logProgress` helper to the workflow runtime that spawns `progress-logger` directly after Plan, Execute, GapCheck (heavy units), and Fix (when a round ran), so progress is recorded even when a phase's Stop hook never fires under module fan-out. `progress-logger` gained a facts-provided fast path (phase + verbatim note) that skips git inspection and appends via Bash `>>`; the git-derived fallback used by standalone `impl-execute` is unchanged. `design-folder.md` documents the optional `[<phase>]` heading suffix.
+
+## plan-partition-schema — 2026-07-05
+
+Unit: #67
+Deleted the redundant sonnet Partition phase from `impl-workflow.mjs`: renamed `PARTITION_SCHEMA` to `PLAN_SCHEMA` and attached it to the existing Plan call, so the opus planner returns `files_total`/`heavy`/`partitionable`/`foundation`/`modules` directly instead of a second agent re-reading `.autocode/.impl-plan.md` to transcribe the same fields. Downstream `heavy`/fanout/foundation/modules logic now reads `plan.*` instead of `part.*`; the `## Module partition` section still lands on disk unchanged for `impl-execute --module` to consume. `impl-plan/SKILL.md`'s `--auto` result and Module partition intro updated to match.
