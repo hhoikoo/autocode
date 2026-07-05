@@ -16,9 +16,13 @@ The spawning prompt provides:
 - `slug` and the unit's branch.
 - A short description of what was attempted this stretch, plus the new commit SHA(s).
 
-If any is missing, derive it: read `progress_log` for the last entry, then `git log` / `git diff` on the current branch for what changed since.
+When the spawn provides `phase` and a verbatim `note`, take the fast path (Workflow below); the SHA(s) are optional context. Absent those, derive it: read `progress_log` for the last entry, then `git log` / `git diff` on the current branch for what changed since.
 
 ## Workflow
+
+**Fast path (facts provided).** When the spawn supplies `phase` and a verbatim `note`, skip steps 1-2 (no `git log`/`git diff`): resolve `progress_log` (from the prompt or by reading `.autocode/.impl-context`), then append the note verbatim under a `## <UTC timestamp> [<phase>]` heading via Bash `>>`, and report. Do not inspect the diff or compose content; the note is authoritative. Bash `>>` is used instead of Edit because this path never Reads `progress_log` (an Edit would require a prior Read).
+
+Otherwise, the git-derived fallback:
 
 1. Read `progress_log` to see what is already recorded (and the last commit it covered).
 2. Inspect what changed since: `git log` and `git diff` for the new commits.
@@ -28,6 +32,8 @@ If any is missing, derive it: read `progress_log` for the last entry, then `git 
    ## <UTC timestamp>
    <what was attempted; what worked; what failed and why; troubleshooting steps and their outcome; anything a future implementer should know>
    ```
+
+   (The fast path's heading carries the optional `[<phase>]` suffix; the git-derived heading above omits it.)
 
 4. Report a one-line confirmation of what you logged, or that you skipped.
 

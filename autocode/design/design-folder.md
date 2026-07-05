@@ -143,11 +143,11 @@ Per-unit detailed log, owned solely by that unit's worktree (no cross-file write
 
 Epic: <id>-<shortname>  Branch: <branch>  Started: <date>
 
-## <entry timestamp>
+## <entry timestamp> [<phase>]
 <what was attempted, what worked, what failed, troubleshooting steps>
 ```
 
-Entries capture lessons for any agent that later continues this unit or a sibling unit in the same epic. Written for both completed and abandoned units.
+Entries capture lessons for any agent that later continues this unit or a sibling unit in the same epic. Written for both completed and abandoned units. `[<phase>]` is the emitting milestone name (`Plan`, `Execute`, `GapCheck`, `Fix`) and is optional: the workflow-driven fast path emits it, the git-derived fallback (standalone `impl-execute` via the Stop hook) omits it.
 
 ## Lifecycle
 
