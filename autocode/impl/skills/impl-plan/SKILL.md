@@ -34,11 +34,11 @@ Design-folder layout, `.impl-context` keys, unit DAG, and the progress lifecycle
 
 4. Write the plan to `.autocode/.impl-plan.md` in the worktree: the per-file task list, the test plan, the implementation order, the `## Module partition` section, and the out-of-scope list. This file is the spec `impl-execute` consumes. Ensure `.autocode/.gitignore` ignores it (create if missing, append if absent); it is a transient artifact, not committed.
 
-5. Report. Default: the plan path and a short summary of the task list. With `--auto`: emit a structured result block (plan path, file count, out-of-scope count). The `## Module partition` section is read from the plan file by the workflow's Partition agent, not surfaced in this block; leave the `--auto` fields unchanged. Next step: `/impl-execute`.
+5. Report. Default: the plan path and a short summary of the task list. With `--auto`: emit a structured result block (plan path, file count, out-of-scope count, `files_total`, `partitionable`, `foundation` `{files,summary}` or null, `modules` `[{name,files,summary}]`). These partition fields mirror the plan's own `## Module partition` section: the planner emits the partition directly in this structured result, and the workflow's Plan phase consumes it from there rather than a separate agent re-reading the plan file. Next step: `/impl-execute`.
 
 ## Module partition
 
-`## Module partition` is written into `.autocode/.impl-plan.md` so the workflow's Partition agent can read it into `{ files_total, partitionable, foundation, modules[] }` without re-deriving the grouping. The planner owns the split; the agent only transcribes.
+`## Module partition` is written into `.autocode/.impl-plan.md` so `impl-execute --module <name>` can scope execution to one group. The same partition is also returned in the `--auto` structured result, consumed by the workflow's Plan phase.
 
 ### Foundation
 
