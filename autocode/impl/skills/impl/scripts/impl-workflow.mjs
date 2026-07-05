@@ -3,7 +3,6 @@ export const meta = {
   description: 'Implement one design unit: plan, execute, review (challenge/decide), fix, push, hygiene',
   phases: [
     { title: 'Plan', detail: 'opus: resolve all unknowns into a mechanical plan', model: 'opus' },
-    { title: 'Partition', detail: 'sonnet: transcribe the plan partition and judge heaviness', model: 'sonnet' },
     { title: 'Execute', detail: 'sonnet: carry out the plan and commit', model: 'sonnet' },
     { title: 'Foundation', detail: 'sonnet: implement the shared foundation group (no commit)', model: 'sonnet' },
     { title: 'Modules', detail: 'sonnet: implement each module group in parallel (no commit)', model: 'sonnet' },
@@ -153,7 +152,7 @@ const PUSH_SCHEMA = {
   required: ['pr_url', 'branch', 'hygiene_shas', 'hygiene_files'],
 }
 
-const PARTITION_SCHEMA = {
+const PLAN_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   properties: {
@@ -254,35 +253,32 @@ async function reviewCycle(tag) {
 }
 
 phase('Plan')
-await agent(
+const plan = await agent(
   inWt + follow(skill('impl-plan'),
-    `Run it in --auto mode for unit ${SLUG}. It writes the mechanical plan to .autocode/.impl-plan.md. Return the plan path and a one-line summary.`),
-  { label: 'plan', phase: 'Plan', model: 'opus' },
+    `Run it in --auto mode for unit ${SLUG}. It writes the mechanical plan to .autocode/.impl-plan.md. Return the plan path and a one-line summary. ` +
+    'Also return the module partition and a self-assessed heaviness, from the `## Module partition` section you write into the plan: ' +
+    'set `partitionable`/`foundation`/`modules`/`files_total` from that section (do NOT re-infer the grouping from the file list). ' +
+    'Set `files_total` to the count of ALL in-scope planned files across the whole per-file task list, independent of the partition. ' +
+    'Set `partitionable` true only when the section declares genuine file-disjoint modules (>=2); a missing section, a non-partitionable declaration, or a single module means `partitionable: false` with `modules: []`. ' +
+    'Set `foundation` to the `### Foundation` group ({ files, summary }) when present, else null. ' +
+    'Self-assess `heavy`: compaction risk over a single Execute agent (file count, total plan size, cross-file coupling); a small, loosely-coupled plan is not heavy.'),
+  { label: 'plan', phase: 'Plan', model: 'opus', schema: PLAN_SCHEMA },
 )
 await logProgress('Plan', 'Plan phase: mechanical plan written to .autocode/.impl-plan.md.')
 
-phase('Partition')
-const part = await agent(
-  inWt +
-    'Read .autocode/.impl-plan.md, specifically its `## Module partition` section (the planner writes a `### Foundation` group and a `### Modules` list, or declares the unit non-partitionable). ' +
-    'Transcribe that section into the schema; do NOT re-infer the grouping from the file list. ' +
-    'Set `files_total` to the count of ALL in-scope planned files across the whole plan (the per-file task list), independent of the partition. ' +
-    'Set `partitionable` true only when the section declares genuine file-disjoint modules (>=2); a missing section, a non-partitionable declaration, or a single module means `partitionable: false` with `modules: []`. ' +
-    'Set `foundation` to the `### Foundation` group ({ files, summary }) when present, else null. ' +
-    'Judge `heavy` yourself from the whole plan: compaction risk over a single Execute agent (file count, total plan size, cross-file coupling). A small, loosely-coupled plan is not heavy.',
-  { label: 'partition', phase: 'Partition', model: 'sonnet', schema: PARTITION_SCHEMA },
-)
-const heavy = !!part && part.heavy
-const fanout = !!part &&
+// files_total rides the plan output unread here; it exists for the downstream
+// per-module-gapcheck sibling's contract, not for this workflow's own logic.
+const heavy = !!plan && plan.heavy
+const fanout = !!plan &&
   FANOUT !== 'off' &&
-  part.partitionable &&
-  part.modules.length >= 2 &&
+  plan.partitionable &&
+  plan.modules.length >= 2 &&
   (FANOUT === 'on' || heavy)
 
 phase('Execute')
 if (fanout) {
   let foundationOk = true
-  if (part.foundation) {
+  if (plan.foundation) {
     phase('Foundation')
     const found = await agent(
       inWt + follow(skill('impl-execute'),
@@ -293,14 +289,14 @@ if (fanout) {
   }
   if (foundationOk) {
     phase('Modules')
-    await parallel(part.modules.map((m) => () =>
+    await parallel(plan.modules.map((m) => () =>
       agent(
         inWt + follow(skill('impl-execute'),
           `Run it in --auto --no-commit --module ${m.name} mode. Implement ONLY the "${m.name}" module group of the plan's \`## Module partition\`, leave all changes uncommitted in the working tree, and report the files written.`),
         { label: `module:${m.name}`, phase: 'Modules', model: 'sonnet' },
       )))
     phase('Commit')
-    const commitOrder = (part.foundation ? ['foundation'] : []).concat(part.modules.map((m) => m.name))
+    const commitOrder = (plan.foundation ? ['foundation'] : []).concat(plan.modules.map((m) => m.name))
     await agent(
       inWt + follow(`${HOME}/.autocode/autocode/git/skills/git-commit/SKILL.md`,
         'Parallel module agents wrote changes to the working tree without committing. ' +
