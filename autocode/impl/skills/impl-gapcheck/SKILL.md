@@ -12,6 +12,8 @@ The skill does not redesign or re-plan; it only checks coverage of the supplied 
 
 Enumerate the in-scope plan items. An item is: (a) each per-file task in the plan, plus (b) each module listed under the plan's `## Module partition` section.
 
+A caller may instead supply a bounded scope: a single module's file list plus its module plan item, or a foundation-plus-residual file list (optionally with a checksum to assert). When a bounded scope is supplied, enumerate and check coverage of exactly that scope rather than the whole plan; the output shape is unchanged.
+
 Skip any item the plan marked out-of-scope (the plan carries an out-of-scope list).
 
 For each in-scope item, verify the diff actually implements it. A missing or empty implementation (no corresponding change, or a stub/empty body where the plan required real work) is a gap.
