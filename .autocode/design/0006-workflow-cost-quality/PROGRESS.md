@@ -17,3 +17,8 @@ Deleted the redundant sonnet Partition phase from `impl-workflow.mjs`: renamed `
 
 Unit: #71
 Added `autocode/_config/guides/svg-diagram.md`: a fixed copy-and-edit SVG skeleton (explicit viewBox, one reusable `<marker>` arrowhead, four named style classes, rounded-rect boxes, manual grid coordinates) plus a python3 well-formedness check with a dependency-free Node tag-balance fallback, no `xmllint`. `design-folder.md`'s Architecture diagram bullet now points at the guide as an SVG alternative to ASCII, and `guides/CLAUDE.md` lists it.
+
+## scoped-verify-gate — 2026-07-05
+
+Unit: #70
+Added `impl-critique-verify` (opus, read-only): after a `--fix` round it confirms the just-applied findings are resolved and diff-scans for regressions, replacing the full `reviewCycle` re-run that previously followed every fix round. `impl-workflow.mjs` wires the new phase in and falls back to the full `reviewCycle` on a low-confidence decline; a `needs_human` flag now threads out of the workflow return for the caller to act on. Added `provider/git-remote/github/pr-draft.sh` (`gh pr ready --undo`) plus its `git-remote` contract entry for a future consumer to convert a PR to draft, then fixed it to stop swallowing genuine `gh` failures (e.g. a closed PR) that its stderr-grep special case had been masking as idempotent no-ops.
