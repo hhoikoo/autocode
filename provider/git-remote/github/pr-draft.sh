@@ -40,13 +40,9 @@ if [[ -n "${repo_override}" ]]; then
   repo_args=(--repo "${repo_override}")
 fi
 
-# `gh pr ready <pr> --undo` converts open -> draft. An already-draft PR makes gh
-# exit non-zero with an "already a draft" message; swallow that one case so the
-# script stays idempotent, and re-raise any other failure.
+# `gh pr ready <pr> --undo` converts open -> draft. gh already exits 0 for an
+# already-draft PR, so idempotency needs no special-casing here.
 err=$(gh pr ready "${pr_number}" ${repo_args[@]+"${repo_args[@]}"} --undo 2>&1) || {
-  if printf '%s' "${err}" | grep -qi 'draft'; then
-    exit 0
-  fi
   printf '%s\n' "${err}" >&2
   exit 1
 }
