@@ -27,3 +27,8 @@ Added `impl-critique-verify` (opus, read-only): after a `--fix` round it confirm
 Unit: #65
 Added the `impl-recap` skill (sonnet): builds a per-unit `recap/<slug>/RECAP.md` from the branch diff and `progress/<slug>.md` (Headline + Narrative model-authored, Data/contract + File tree + Key changes + Remaining mechanical), plus `autocode/impl/impl-pr-body.md`, the canonical recipe for a unit code PR body that both `pr-create` and the `pr-hygiene` refresh agent `@`-import so the body never diverges. Extended `design-folder.md` with the living `recap/<slug>/` layout. Fixed `pr-hygiene`'s unit-PR detection to key solely on a committed `recap/<slug>/RECAP.md`, dropping the `progress/<slug>.md` fallback that matched every unit PR and recomposed bodies from a link to a RECAP.md that doesn't exist yet.
 Notes: the Recap-phase invocation itself (wiring it into `impl-workflow.mjs`) is out of scope here; tracked as `recap-phase-wiring`.
+
+## per-module-gapcheck — 2026-07-05
+
+Unit: #66
+Heavy, partitionable units with a large diff now size the diff first (sonnet agent), then run one `impl-gapcheck` agent per module plus a residual integration bucket in parallel, union and de-dupe the gaps, and feed the result into the existing gapfix + recheck loop unchanged. Small-heavy and non-partitionable units keep the single whole-diff agent. `impl-gapcheck/SKILL.md` documents the caller-supplied bounded scope this relies on.
