@@ -15,6 +15,7 @@ export const meta = {
     { title: 'Decide', detail: 'opus: rule which findings survive', model: 'opus' },
     { title: 'Fix', detail: 'sonnet: apply the decided findings', model: 'sonnet' },
     { title: 'Verify', detail: 'opus: scoped check that decided findings are resolved and no new regressions', model: 'opus' },
+    { title: 'Recap', detail: 'sonnet: build RECAP.md from the diff, SHA-pinning blobs at HEAD', model: 'sonnet' },
     { title: 'Push', detail: 'sonnet: commit the rollup and open the PR', model: 'sonnet' },
     { title: 'Hygiene', detail: 'sonnet: doc/PR-description hygiene', model: 'sonnet' },
   ],
@@ -217,6 +218,15 @@ const DIFF_SIZE_SCHEMA = {
 }
 
 const importantOf = (decided) => decided.actionable.filter((a) => a.severity === 'Important')
+
+// A changed path pr-hygiene can act on: docs and public-interface definitions.
+// This repo's public surfaces are all markdown (SKILL.md, agents/*.md, CLAUDE.md,
+// provider contract.md, README), so a `.md` test plus a README* catch covers the
+// design's enumerated set (.md, README*, CLAUDE.md, skill/agent/provider-contract files).
+// leanness: markdown-only predicate; widen to interface globs (e.g. provider *.sh
+// signatures) only if a non-doc surface later needs hygiene.
+const isHygieneRelevant = (f) => /\.md$/i.test(f) || /(^|\/)README/i.test(f)
+const hygieneRelevant = (files) => (files || []).some(isHygieneRelevant)
 
 async function reviewCycle(tag) {
   const defaultDims = DIMS ? JSON.stringify(DIMS) : '["correctness","security","performance","leanness"]'
@@ -440,6 +450,16 @@ if (round > 0) await logProgress('Fix', `Fix phase: ${round} fix round(s); ${imp
 
 const needsHuman = importantOf(decided).length > 0 || remainingGaps > 0
 
+phase('Recap')
+await agent(
+  inWt + follow(skill('impl-recap'),
+    `Build the per-unit RECAP.md for slug "${SLUG}". Base ref: ${BASE}. ` +
+    'Read design_id/shortname/slug from `.autocode/.impl-context`; write `recap/<slug>/RECAP.md` (and any SVG assets) under that design folder. ' +
+    'Capture the recap-time HEAD sha yourself (`git rev-parse HEAD`) and SHA-pin every shipped-source blob URL at it; never pin RECAP.md or PROGRESS.md (they land in the later Push commit). ' +
+    `Surface these caller-supplied tallies verbatim in the Remaining section: remaining_important=${importantOf(decided).length}, remaining_gaps=${remainingGaps}.`),
+  { label: 'recap', phase: 'Recap', model: 'sonnet' },
+)
+
 phase('Push')
 const push = await agent(
   inWt + follow(skill('impl-push'),
@@ -447,12 +467,29 @@ const push = await agent(
   { label: 'push', phase: 'Push', model: 'sonnet', schema: PUSH_SCHEMA },
 )
 
-phase('Hygiene')
-await agent(
-  inWt + follow(`${HOME}/.autocode/autocode/pr/agents/pr-hygiene.md`,
-    `Assess documentation impact and PR-description currency for the PR just opened: ${push.pr_url}. Pushed commits: ${JSON.stringify(push.hygiene_shas)}. Changed files: ${JSON.stringify(push.hygiene_files)}.`),
-  { label: 'hygiene', phase: 'Hygiene', model: 'sonnet' },
-)
+if (needsHuman) {
+  await agent(
+    inWt +
+      `The unit PR just opened (${push.pr_url}) did not converge (unresolved important findings and/or gaps remain), so hold it for human review. ` +
+      `Convert it to draft: run \`provider/run.sh git-remote pr-draft ${push.pr_url}\`. ` +
+      'Apply the needs-human label idempotently: `gh label create needs-human --force >/dev/null 2>&1 || true`, then ' +
+      `\`gh pr edit ${push.pr_url} --add-label needs-human\`. ` +
+      `Then post a marking comment: \`gh pr comment ${push.pr_url} --body\` with a one-line note that the PR is held for human review because ${importantOf(decided).length} important finding(s) and ${remainingGaps} gap(s) remain unresolved. ` +
+      'Report the draft/label/comment status.',
+    { label: 'converge-gate', phase: 'Push', model: 'sonnet' },
+  )
+}
+
+if (hygieneRelevant(push.hygiene_files)) {
+  phase('Hygiene')
+  await agent(
+    inWt + follow(`${HOME}/.autocode/autocode/pr/agents/pr-hygiene.md`,
+      `Assess documentation impact and PR-description currency for the PR just opened: ${push.pr_url}. Pushed commits: ${JSON.stringify(push.hygiene_shas)}. Changed files: ${JSON.stringify(push.hygiene_files)}.`),
+    { label: 'hygiene', phase: 'Hygiene', model: 'sonnet' },
+  )
+} else {
+  log('hygiene skipped: no doc/README/public-API file changed')
+}
 
 return {
   pr_url: push.pr_url,
