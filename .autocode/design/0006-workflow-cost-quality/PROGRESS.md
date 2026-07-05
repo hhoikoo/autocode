@@ -37,3 +37,8 @@ Heavy, partitionable units with a large diff now size the diff first (sonnet age
 
 Unit: #69
 Wired the Recap phase into `impl-workflow.mjs`: a sonnet `impl-recap` dispatch now runs after Verify and before Push, building `recap/<slug>/RECAP.md` with SHA-pinned blob links at a self-captured HEAD. Added a converge gate that holds the just-opened PR in draft with a `needs-human` label and a marking comment when important findings or gaps remain unresolved after the fix loop. Hygiene now runs conditionally: a markdown/README predicate (`isHygieneRelevant`) checks `push.hygiene_files` and skips the `pr-hygiene` dispatch entirely when no doc-relevant path changed, logging the skip instead. `impl-push/SKILL.md`'s commit step now names the `recap/<slug>/` artifacts explicitly alongside `PROGRESS.md` and `progress/<slug>.md`.
+
+## recap-aware-review — 2026-07-05
+
+Unit: #68
+Made `pr-review` resolve RECAP.md-anchored review comments to the concrete source `file:line` via the RECAP's SHA-pinned blob links in `## Key changes` before triage, falling back to discussion-band treatment when the anchor is ambiguous (outside `## Key changes`, no nearby blob link, or multiple candidate blobs). In a unit worktree, fix-band findings now go to `impl-execute --fix` instead of being edited and committed inline, so the minimal-edit and commit conventions stay owned by `impl-execute`; standalone use on the default branch is unchanged.
