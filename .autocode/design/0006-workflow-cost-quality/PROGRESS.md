@@ -22,3 +22,8 @@ Added `autocode/_config/guides/svg-diagram.md`: a fixed copy-and-edit SVG skelet
 
 Unit: #70
 Added `impl-critique-verify` (opus, read-only): after a `--fix` round it confirms the just-applied findings are resolved and diff-scans for regressions, replacing the full `reviewCycle` re-run that previously followed every fix round. `impl-workflow.mjs` wires the new phase in and falls back to the full `reviewCycle` on a low-confidence decline; a `needs_human` flag now threads out of the workflow return for the caller to act on. Added `provider/git-remote/github/pr-draft.sh` (`gh pr ready --undo`) plus its `git-remote` contract entry for a future consumer to convert a PR to draft, then fixed it to stop swallowing genuine `gh` failures (e.g. a closed PR) that its stderr-grep special case had been masking as idempotent no-ops.
+## impl-recap-surface — 2026-07-05
+
+Unit: #65
+Added the `impl-recap` skill (sonnet): builds a per-unit `recap/<slug>/RECAP.md` from the branch diff and `progress/<slug>.md` (Headline + Narrative model-authored, Data/contract + File tree + Key changes + Remaining mechanical), plus `autocode/impl/impl-pr-body.md`, the canonical recipe for a unit code PR body that both `pr-create` and the `pr-hygiene` refresh agent `@`-import so the body never diverges. Extended `design-folder.md` with the living `recap/<slug>/` layout. Fixed `pr-hygiene`'s unit-PR detection to key solely on a committed `recap/<slug>/RECAP.md`, dropping the `progress/<slug>.md` fallback that matched every unit PR and recomposed bodies from a link to a RECAP.md that doesn't exist yet.
+Notes: the Recap-phase invocation itself (wiring it into `impl-workflow.mjs`) is out of scope here; tracked as `recap-phase-wiring`.
