@@ -2,7 +2,7 @@ export const meta = {
   name: 'design-plan',
   description: 'Plan phase off-context: research, DESIGN.md synthesis, worktree/branch/id/INDEX.md, unit-author fan-out with structured contract and bounded retry',
   phases: [
-    { title: 'Research', detail: 'opus: interpret seed, fan-out codebase researchers for each gap', model: 'opus' },
+    { title: 'Research', detail: 'opus: interpret seed + decompose gaps; sonnet: fan-out codebase researchers', model: 'opus+sonnet' },
     { title: 'Synthesize', detail: 'opus: compose DESIGN.md, derive shortname, create worktree/branch/id/INDEX.md, assign units', model: 'opus' },
     { title: 'Author', detail: 'opus: unit-author fan-out (one per unit)', model: 'opus' },
     { title: 'Resolve', detail: 'opus: bounded research-backed retry for underspecified units (cap one per unit)', model: 'opus' },
@@ -136,7 +136,7 @@ const researched = await parallel(
       `Read ${designAgent('codebase-researcher')} and follow it. ` +
       `Research question: "${gap.question}". Label: "${gap.label}". ` +
       `Return label, verbatim findings, and any remaining gaps you could not resolve.`,
-      { label: `research:${gap.label}`, phase: 'Research', model: 'opus', schema: RESEARCH_SCHEMA },
+      { label: `research:${gap.label}`, phase: 'Research', model: 'sonnet', schema: RESEARCH_SCHEMA },
     )
   )
 )
@@ -244,7 +244,7 @@ if (underspecifiedIdxs.length > 0) {
         `Research the specific gap that makes unit "${unit.slug}" underspecified. ` +
         `Deliverable: "${unit.deliverable}". ` +
         `Focus on which concrete files exist and what interfaces they expose.`,
-        { label: `resolve-research:${unit.slug}`, phase: 'Resolve', model: 'opus', schema: RESEARCH_SCHEMA },
+        { label: `resolve-research:${unit.slug}`, phase: 'Resolve', model: 'sonnet', schema: RESEARCH_SCHEMA },
       )
       // Then: re-author with additional findings
       return agent(
