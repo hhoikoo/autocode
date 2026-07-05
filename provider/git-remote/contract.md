@@ -13,7 +13,7 @@ PR lifecycle on the git hosting side: create, view, edit body, link to issue, re
 - Exit codes: `0` success, `1` expected failure (bad input, missing resource), `2` unexpected failure (network, crash).
 - JSON: `snake_case` keys, `[]` for empty arrays, `""` for empty strings, never `null` (except where the shape explicitly allows it, e.g. `line: <integer|null>` for PR comments without a line).
 - PR identifier is provider-native as a string (GitHub PR number).
-- Idempotency: `pr-issue-link.sh` is a no-op when the link is already present. `pr-review-request.sh` tolerates already-requested reviewers. `pr-thread-resolve.sh` tolerates already-resolved threads. `pr-merge.sh` is a no-op on an already-merged PR.
+- Idempotency: `pr-issue-link.sh` is a no-op when the link is already present. `pr-review-request.sh` tolerates already-requested reviewers. `pr-thread-resolve.sh` tolerates already-resolved threads. `pr-merge.sh` is a no-op on an already-merged PR. `pr-draft.sh` is a no-op on an already-draft PR.
 
 ## Shared types
 
@@ -82,6 +82,7 @@ PR lifecycle on the git hosting side: create, view, edit body, link to issue, re
 | `pr-create.sh` | `--title <t> --body-file <p> [--base <b>] [--assignee <a>] [--no-review]` | PR URL on a single line |
 | `pr-body-edit.sh` | `<pr> <body-file>` | none |
 | `pr-merge.sh` | `<pr> [--admin] [--squash\|--merge\|--rebase]` | none |
+| `pr-draft.sh` | `<pr> [-g <owner/repo>]` | none |
 | `pr-issue-link.sh` | `<pr> <issue-id>` | none |
 | `issue-ref.sh` | `<tracker-key>` | git-remote issue number to close, or empty |
 | `pr-review-request.sh` | `<pr> <reviewer>...` | none |
@@ -100,6 +101,7 @@ PR lifecycle on the git hosting side: create, view, edit body, link to issue, re
 - `pr-issue-link.sh` is idempotent. It detects existing `close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved #N` references (case-insensitive, word-boundary anchored) and skips when present. When missing, it appends a canonical `Closes #N` line.
 - `issue-ref.sh` bridges the issue-tracker key to a git-remote-native close target. A close reference only auto-closes when it names a git-remote issue number, which differs from the tracker key when the tracker is not the git remote. The GitHub implementation echoes a numeric key as-is (GitHub Issues is the tracker), and for a non-numeric key (e.g. Jira `PROJ-123`) searches for a mirrored GitHub issue, emitting its number or empty. Empty stdout with exit `0` means "nothing on this remote to close" and is not a failure; callers skip the link step.
 - `pr-merge.sh` default method is `--squash`; `--admin` bypasses required reviews and checks. Idempotent: an already-merged PR exits `0` as a no-op.
+- `pr-draft.sh` converts an already-opened PR to draft via `gh pr ready <pr> --undo`. Side-effect only, no stdout. Idempotent: an already-draft PR is a no-op with exit `0`. `-g <owner/repo>` overrides repo detection. Deliberately separate from `pr-create.sh` (which has no `--draft` and rejects unknown args, `pr-create.sh:37`); the `needs-human` label is applied by the caller, not this script.
 - `pr-review-request.sh` tolerates reviewers already on the PR without error.
 - `pr-comment-list.sh` returns all comments (review-line + issue-style) merged into one array; callers discriminate via `.kind`. Rejects any extra argument with exit `1`.
 - `pr-comment-reply.sh` posts a threaded reply to a review comment. Falls back to a regular issue-style PR comment if the threaded-reply API rejects the target id.

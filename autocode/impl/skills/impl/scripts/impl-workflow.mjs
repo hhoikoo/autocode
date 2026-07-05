@@ -14,6 +14,7 @@ export const meta = {
     { title: 'Challenge', detail: 'opus: contest the findings', model: 'opus' },
     { title: 'Decide', detail: 'opus: rule which findings survive', model: 'opus' },
     { title: 'Fix', detail: 'sonnet: apply the decided findings', model: 'sonnet' },
+    { title: 'Verify', detail: 'opus: scoped check that decided findings are resolved and no new regressions', model: 'opus' },
     { title: 'Push', detail: 'sonnet: commit the rollup and open the PR', model: 'sonnet' },
     { title: 'Hygiene', detail: 'sonnet: doc/PR-description hygiene', model: 'sonnet' },
   ],
@@ -361,9 +362,21 @@ while (importantOf(decided).length && round < MAX_FIX_ROUNDS) {
       `Run it in --fix --auto mode. Apply these decided findings minimally and commit:\n${JSON.stringify(importantOf(decided))}`),
     { label: `fix-r${round}`, phase: 'Fix', model: 'sonnet' },
   )
-  decided = await reviewCycle(`-r${round}`)
+  const verify = await agent(
+    inWt + readOnly + follow(skill('impl-critique-verify'),
+      'Verify the fixes just applied this round. The decided findings applied this round ' +
+      `(each file:line, severity, claim, fix):\n${JSON.stringify(importantOf(decided))}\n` +
+      `Base ref: ${BASE}. Compute the fix-commit diff yourself. Confirm each finding is resolved; ` +
+      'diff-scan the fix commits for NEW regressions outside the decided set. ' +
+      'Return a DECIDE_SCHEMA object (actionable[] keyed on severity Important|Nit, dropped, tally); ' +
+      'decline by returning no structured object on low confidence.'),
+    { label: `verify-r${round}`, phase: 'Verify', model: 'opus', schema: DECIDE_SCHEMA },
+  )
+  decided = verify || await reviewCycle(`-r${round}`)
 }
 if (round > 0) await logProgress('Fix', `Fix phase: ${round} fix round(s); ${importantOf(decided).length} important finding(s) remaining.`)
+
+const needsHuman = importantOf(decided).length > 0 || remainingGaps > 0
 
 phase('Push')
 const push = await agent(
@@ -388,4 +401,5 @@ return {
   fanout_used: fanout,
   gap_rounds: gapRoundsUsed,
   remaining_gaps: remainingGaps,
+  needs_human: needsHuman,
 }
