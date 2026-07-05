@@ -4,14 +4,14 @@ Canonical recipe for the body of a unit code PR. Composed by `pr-create` at crea
 
 ## Detection
 
-A unit PR is one whose branch diff contains a committed `recap/<slug>/RECAP.md` (the impl marker, committed in the Push commit, so present in `git diff <base>...HEAD --name-only`) AND at least one source path outside `.autocode/design/`. This distinguishes it from a design PR (design-folder-only, `design-pr-body.md` Detection) and a plain PR (no recap artifact). `.autocode/.impl-context` is gitignored (`design-folder.md` `## Contents`) so it cannot be the diff marker; when `recap/<slug>/RECAP.md` is not yet committed, a committed `progress/<slug>.md` is the fallback marker.
+A unit PR is one whose branch diff contains a committed `recap/<slug>/RECAP.md` (the impl marker, committed in the Push commit, so present in `git diff <base>...HEAD --name-only`) AND at least one source path outside `.autocode/design/`. This distinguishes it from a design PR (design-folder-only, `design-pr-body.md` Detection) and a plain PR (no recap artifact). `.autocode/.impl-context` is gitignored (`design-folder.md` `## Contents`) so it cannot be the diff marker. A unit PR without a committed `recap/<slug>/RECAP.md` falls through to the generic template body (matching `pr-create`'s own detection) until recap-phase wiring lands.
 
 ## Inputs
 
 Self-discovered from the diff so both call sites resolve them identically (matching `design-pr-body.md` Inputs):
 
 - `<folder>`: the design folder `.autocode/design/<id>-<shortname>/`. Discover from `git diff <base>...HEAD --name-only | grep '^\.autocode/design/'`, then take the containing `<id>-<shortname>` directory.
-- `<slug>`: the unit slug, the `recap/<slug>/` (or `progress/<slug>.md`) path component under `<folder>`.
+- `<slug>`: the unit slug, the `recap/<slug>/` path component under `<folder>`.
 - `<base>`: resolved base branch. `<branch>`: current branch ref (`git rev-parse --abbrev-ref HEAD`).
 - `<recap>`: `<folder>/recap/<slug>/RECAP.md`.
 
