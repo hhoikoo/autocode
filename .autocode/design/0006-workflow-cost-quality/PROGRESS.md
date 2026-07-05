@@ -13,3 +13,7 @@ Added a `logProgress` helper to the workflow runtime that spawns `progress-logge
 
 Unit: #67
 Deleted the redundant sonnet Partition phase from `impl-workflow.mjs`: renamed `PARTITION_SCHEMA` to `PLAN_SCHEMA` and attached it to the existing Plan call, so the opus planner returns `files_total`/`heavy`/`partitionable`/`foundation`/`modules` directly instead of a second agent re-reading `.autocode/.impl-plan.md` to transcribe the same fields. Downstream `heavy`/fanout/foundation/modules logic now reads `plan.*` instead of `part.*`; the `## Module partition` section still lands on disk unchanged for `impl-execute --module` to consume. `impl-plan/SKILL.md`'s `--auto` result and Module partition intro updated to match.
+## svg-diagram-guide — 2026-07-05
+
+Unit: #71
+Added `autocode/_config/guides/svg-diagram.md`: a fixed copy-and-edit SVG skeleton (explicit viewBox, one reusable `<marker>` arrowhead, four named style classes, rounded-rect boxes, manual grid coordinates) plus a python3 well-formedness check with a dependency-free Node tag-balance fallback, no `xmllint`. `design-folder.md`'s Architecture diagram bullet now points at the guide as an SVG alternative to ASCII, and `guides/CLAUDE.md` lists it.
