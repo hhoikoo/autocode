@@ -7,25 +7,25 @@ type: task
 
 ## Summary
 
-One user-facing skill, `a2a-spawn`, that delegates a side task to a fresh Claude session. It runs the handover skill inline to produce a self-contained takeover prompt (skills compose in-context, not as subprocesses: this session executes handover's steps and therefore has the written `handover.md` path in context), creates a tmux target (a new window by default or a detached session with `--session`), launches `claude` there, seeds it with a one-line read prompt pointing at the handover file, then registers the new agent via the channel-core `register` subcommand so it is immediately addressable. All tmux targeting uses the captured `%N` pane id (stable for the server's lifetime), never stored window coordinates. Every tmux call is guarded by `has-session`; outside tmux the skill refuses with a one-line message. The new session resolves its own identity from `$TMUX_PANE` via the channel-core SessionStart inject hook once it boots.
+One user-facing skill, `comms-spawn`, that delegates a side task to a fresh Claude session. It runs the handover skill inline to produce a self-contained takeover prompt (skills compose in-context, not as subprocesses: this session executes handover's steps and therefore has the written `handover.md` path in context), creates a tmux target (a new window by default or a detached session with `--session`), launches `claude` there, seeds it with a one-line read prompt pointing at the handover file, then registers the new agent via the channel-core `register` subcommand so it is immediately addressable. All tmux targeting uses the captured `%N` pane id (stable for the server's lifetime), never stored window coordinates. Every tmux call is guarded by `has-session`; outside tmux the skill refuses with a one-line message. The new session resolves its own identity from `$TMUX_PANE` via the channel-core SessionStart inject hook once it boots.
 
 ## Implementation
 
-Two files, one skill pair. Real file is body-only (no frontmatter). The shim carries only `name`+`description` frontmatter and a single `@~/.autocode/...` read line. Skill name `a2a-spawn` is globally unique (`a2a-` prefix; not used by any existing feature-set).
+Two files, one skill pair. Real file is body-only (no frontmatter). The shim carries only `name`+`description` frontmatter and a single `@~/.autocode/...` read line. Skill name `comms-spawn` is globally unique (`comms-` prefix; not used by any existing feature-set).
 
 Real skill:
 
-- `autocode/comms/skills/a2a-spawn/SKILL.md`
+- `autocode/comms/skills/comms-spawn/SKILL.md`
 
 Shim:
 
-- `plugins/autocode/skills/a2a-spawn/SKILL.md`
+- `plugins/autocode/skills/comms-spawn/SKILL.md`
 
-### a2a-spawn
+### comms-spawn
 
 Delegate a task to a new seeded Claude session in tmux. Workflow:
 
-1. Parse `$ARGUMENTS`: a required task description, an optional `--session` flag (new detached session instead of a new window in the current session), and an optional target agent name. Default the name via the channel-core default scheme (`<session_name>-<window_index>` of the NEW window; channel-core owns the scheme, so a later manual `a2a-register` in the spawned session computes the same default).
+1. Parse `$ARGUMENTS`: a required task description, an optional `--session` flag (new detached session instead of a new window in the current session), and an optional target agent name. Default the name via the channel-core default scheme (`<session_name>-<window_index>` of the NEW window; channel-core owns the scheme, so a later manual `comms-register` in the spawned session computes the same default).
 2. Guard: if `$TMUX_PANE` is unset (not inside tmux), report a one-line refusal and stop. Spawned agents bind identity to a tmux pane, so the spawner must itself run in tmux.
 3. Resolve the main-worktree root and messages dir via `bash ~/.autocode/autocode/comms/lib/channel.sh resolve-dir` (one subcommand per Bash call; nothing sourced across steps).
 4. Run the handover skill inline, forwarding the task description. Its steps execute in this session; after its final "print the path" step the `handover.md` path is in context. Do not reimplement handover, and do not model this as a subprocess with captured stdout (skills have no such mechanism).
@@ -43,13 +43,17 @@ Guard every tmux invocation with `has-session` (and skip-not-fail on a missing t
 
 ### Shim shape
 
-The shim mirrors `plugins/autocode/skills/git-commit/SKILL.md`: frontmatter with `name` and `description`, body a single line `Read through @~/.autocode/autocode/comms/skills/a2a-spawn/SKILL.md and execute actions according to the instructions in the file.`, forwarding `$ARGUMENTS`.
+The shim mirrors `plugins/autocode/skills/git-commit/SKILL.md`: frontmatter with `name` and `description`, body a single line `Read through @~/.autocode/autocode/comms/skills/comms-spawn/SKILL.md and execute actions according to the instructions in the file.`, forwarding `$ARGUMENTS`.
+
+## Not in scope
+
+Fire-and-forget: the spawner delegates and returns; there is no completion signal back. The spawned agent is registered and therefore addressable, so the spawner polls on its own terms via `comms-send` (check in) or `comms-agents` (is the pane still alive). Auto report-back (a completion hook plus the spawner's agent name stored in the spawned card) is out of scope for v1 (DESIGN.md decision 5).
 
 ## Testing
 
 One runnable bash self-check (assert-based, no framework):
 
-`autocode/comms/skills/a2a-spawn/test/smoke.sh`
+`autocode/comms/skills/comms-spawn/test/smoke.sh`
 
 It covers the two non-tmux-dependent halves of the flow with all tmux calls stubbed:
 
