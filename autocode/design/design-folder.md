@@ -58,7 +58,7 @@ The epic plan. Opens with a single `# <Title>` H1: a natural-language title for 
 
 - `## Summary`: one paragraph. Verbatim source for the epic issue body at fan-out, so it must stand alone.
 - `## Background` (conditional): brief current-state context. A table (component / file / current behavior) when several pieces interact; a sentence or two otherwise. It frames the change; it does not re-document the codebase.
-- `## Architecture`: the proposed design. Packages, interfaces, new deps (or "no architecture impact" explicitly). Include an ASCII diagram when components interact or data crosses a boundary; omit the diagram for a single-file change.
+- `## Architecture`: the proposed design. Packages, interfaces, new deps (or "no architecture impact" explicitly). Include a diagram, ASCII or an SVG authored per `@~/.autocode/autocode/_config/guides/svg-diagram.md`, when components interact or data crosses a boundary; omit the diagram for a single-file change.
 - `## Design decisions`: numbered. Each names the choice, the rationale, and the rejected alternative. One entry per non-obvious decision; obvious choices need none.
 - `## Runtime flow` (conditional): numbered end-to-end walk of the behavior at runtime. Include for behavior changes; omit for pure refactors or static config.
 - `## Edge cases and error handling`.
