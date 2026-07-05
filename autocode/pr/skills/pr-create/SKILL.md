@@ -23,6 +23,7 @@ Open a pull request for the current branch.
    - Title structure is fixed by the convention, not improvised. Read the `## Where it appears` -> `PR title` entry of `issue-id.md`. If it specifies a pattern that carries the id and an id resolved, the title is `<type>(<id>): <subject>`. If it says `not required` (or no id resolved), the title is `<type>: <subject>`. Derive `<type>` from the branch prefix per `branch-naming.md`; take `<subject>` from `git log -1 --pretty=%s`. The model authors only `<subject>`; it never decides whether the id appears.
 4. Generate body:
    - `--body-file <path>` given: use that file verbatim as `body`. Skip all generation below (template and lightweight); the caller owns the content.
+   - Unit-PR check (before the generic template fill, skipped under `--lightweight`): apply the detection rule in `@~/.autocode/autocode/impl/impl-pr-body.md` (a committed `recap/<slug>/RECAP.md` in the diff plus a source path outside `.autocode/design/`). When it matches, compose the body per that recipe instead of the generic template fill below, writing to `body="$(mktemp -d "${TMPDIR:-/tmp}/autocode-impl-pr.XXXXXX")/body.md"` as the recipe specifies. Symmetric to how `design-plan-push/SKILL.md` composes `design-pr-body.md`. Skip to step 5 once composed.
    - Default (no `--lightweight`):
      - Read `.github/PULL_REQUEST_TEMPLATE.md` and `$AUTOCODE_CONFIG_DIR/conventions/pr-template.md`.
      - Inspect changes: `git diff <base>...HEAD` and `git log <base>..HEAD --oneline`. Read source files when needed for accurate section text.
@@ -59,6 +60,7 @@ Open a pull request for the current branch.
 - Body fills every template section. Empty sections get a placeholder (`(none)` or `_n/a_`).
 - `--lightweight` skips template, sleep+link, reviewer request, and hygiene dispatch. Explicit `--no-review` wins over implicit reviewer request. `--no-pr-hygiene` skips only the hygiene dispatch.
 - `--body-file <path>` supplies the body verbatim, overriding both default and lightweight body generation. Compose with `--lightweight` to also skip link/reviewers/hygiene.
+- A unit PR's body is composed via the canonical `@~/.autocode/autocode/impl/impl-pr-body.md` recipe, never hand-rolled. `pr-create` (not `impl-push`) owns composition: `impl-push` bars inlining PR-body generation and delegates here at its step 5. The unit branch fires only in the default path (`--lightweight` and `--body-file` skip it, same as the generic template fill).
 - Never force-push or rewrite history.
 
 $ARGUMENTS

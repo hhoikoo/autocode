@@ -14,8 +14,11 @@ The per-phase skills are also usable on their own:
 - `impl-start`: pick a DAG-ready unit, set up the worktree + branch + `.impl-context`.
 - `impl-plan` (opus): turn the authoritative design into a concrete mechanical plan that resolves every unknown, written to `.autocode/.impl-plan.md`. The reasoning phase.
 - `impl-execute` (sonnet): carry out the plan mechanically and commit; `--fix` applies review findings.
+- `impl-recap` (sonnet): build the per-unit `recap/<slug>/RECAP.md` from the diff and progress log; consumed by the Recap phase (wired by `recap-phase-wiring`).
 - `impl-push`: append the epic rollup, commit, open the PR (linking the issue), advance the sub-issue.
 - `impl-archive`: close out a completed epic.
+
+`impl-pr-body.md` is the canonical recipe for a unit code PR body: a `RECAP.md` link plus the PR template filled from the RECAP summary, never a raw diff. `pr-create` composes it at creation; the `pr-hygiene` agent recomposes it on refresh. Both `@`-import it so the body never diverges.
 
 `impl-critique` is the standalone, report-only review front end. It composes three leaf skills, each run by a read-only `code-reviewer` subagent and reused by the `impl` workflow's review phase:
 - `impl-critique-review`: review the diff along one dimension (safe to fan out one per dimension). Dimensions include a `leanness` over-engineering pass, run by default.

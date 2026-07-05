@@ -27,9 +27,13 @@ Use these to scope the analysis. Read the full branch diff only if the PR descri
    ```
 4. **Design-PR check.** Apply the detection rule in `@~/.autocode/autocode/design/design-pr-body.md`: `git diff <base>...HEAD --name-only` is non-empty and every path is under `.autocode/design/`. If so, this is a design PR:
    - Documentation assessment is fixed: output **No docs needed** (the design doc is the doc).
-   - PR description: recompose the body via the recipe in `@~/.autocode/autocode/design/design-pr-body.md` (it self-discovers `<folder>` from the diff), then apply it with `provider/run.sh git-remote pr-body-edit <pr-number> <path>`. Do not run the diff-based draft in step 6; a design body is never a code-diff summary. Include the applied body in the output and stop.
+   - PR description: recompose the body via the recipe in `@~/.autocode/autocode/design/design-pr-body.md` (it self-discovers `<folder>` from the diff), then apply it with `provider/run.sh git-remote pr-body-edit <pr-number> <path>`. Do not run the diff-based draft in step 7; a design body is never a code-diff summary. Include the applied body in the output and stop.
    - Otherwise continue to step 5.
-5. **Documentation assessment** from the scoped diff. Consider:
+5. **Impl-PR check.** Apply the detection rule in `@~/.autocode/autocode/impl/impl-pr-body.md`: `git diff <base>...HEAD --name-only` contains a committed `recap/<slug>/RECAP.md` (or, before that lands, a committed `progress/<slug>.md` as fallback marker) AND at least one source path outside `.autocode/design/`. Design-folder-only diffs cannot also carry a recap/progress path, so this and the design-PR check are mutually exclusive; the design-PR check runs first, safely. If this matches, this is an impl (unit) PR:
+   - Documentation assessment: a brief scoped assessment from the scoped diff (same criteria as step 6), kept terse to mirror the design branch's handling.
+   - PR description: recompose the body via the recipe in `@~/.autocode/autocode/impl/impl-pr-body.md` (it self-discovers `<folder>`, `<slug>`, `<recap>` from the diff), then apply it with `provider/run.sh git-remote pr-body-edit <pr-number> <path>`. Do not run the generic step-7 draft. Include the applied body in the output and stop. Keeps the recomposed body identical to what `pr-create` first wrote.
+   - Otherwise continue to step 6.
+6. **Documentation assessment** from the scoped diff. Consider:
    - New public APIs, CLI flags, config options.
    - Behavior changes to existing features.
    - Architectural shifts that affect contributors.
@@ -39,7 +43,7 @@ Use these to scope the analysis. Read the full branch diff only if the PR descri
    Internal refactors, test additions, and pure bug fixes rarely warrant doc updates. Output one of:
    - **No docs needed** with a 1-2 sentence rationale.
    - **Docs update recommended**: for each file, name the section and describe the specific change. Do not apply edits; the caller approves.
-6. **PR description update**. Compare the current body against the scoped diff.
+7. **PR description update**. Compare the current body against the scoped diff.
    - If current, output "PR description is current".
    - If stale: run `git diff <base>...HEAD` for the full branch diff. Draft a replacement body that reads as if the PR were freshly opened (no changelog, no patch notes). Write it to `$(mktemp -d "${TMPDIR:-/tmp}/autocode-pr-hygiene.XXXXXX")/body.md`. Apply via:
      ```bash

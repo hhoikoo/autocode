@@ -40,17 +40,18 @@ Uniqueness under concurrency: two branches that allocate the same id both append
   units/<slug>.md       # one per unit of work; immutable after merge
   PROGRESS.md           # epic rollup, one block per merged unit; living
   progress/<slug>.md    # per-unit detailed log; living
+  recap/<slug>/         # per-unit recap folder; living
 ```
 
-Immutable vs living: `DESIGN.md` and `units/*.md` are the spec; once the design PR merges they are not edited (corrections go through a new design PR). `PROGRESS.md` and `progress/*.md` are living, written during implementation. This split is what makes the immutable spec safe to fan out to issues while progress accrues independently.
+Immutable vs living: `DESIGN.md` and `units/*.md` are the spec; once the design PR merges they are not edited (corrections go through a new design PR). `PROGRESS.md`, `progress/*.md`, and `recap/<slug>/` are living, written during implementation. This split is what makes the immutable spec safe to fan out to issues while progress accrues independently.
 
 ### Single-unit (flat) designs
 
-When the work is one PR's worth, the epic and the unit are the same thing. The design is flat: no `units/` directory. `DESIGN.md` carries the unit frontmatter (`type:`) and an `## Implementation` section, and is its own unit (slug = `<shortname>`). Fan-out then creates exactly one issue (no epic/sub-issue split), carrying the `autocode:epic=<id>` marker so discovery is identical. `progress/<shortname>.md` is the only per-unit log.
+When the work is one PR's worth, the epic and the unit are the same thing. The design is flat: no `units/` directory. `DESIGN.md` carries the unit frontmatter (`type:`) and an `## Implementation` section, and is its own unit (slug = `<shortname>`). Fan-out then creates exactly one issue (no epic/sub-issue split), carrying the `autocode:epic=<id>` marker so discovery is identical. `progress/<shortname>.md` and `recap/<shortname>/` are the per-unit artifacts.
 
 The rule everything keys on: `units/` present -> multi-unit epic; `units/` absent -> flat single issue. Use flat when the plan would otherwise produce a single unit; use multi-unit when the work splits into independently mergeable pieces.
 
-All four are committed. Only the transient state files `.autocode/.impl-context` and `.autocode/.progress-last-sha` (written by `impl-start` and the progress hook) are gitignored; this list is canonical. `/autocode-setup` and `/autocode-update` scaffold `<repo-root>/.autocode/.gitignore` to ignore them, with `impl-start` as a backstop. The repo-root `.autocode/` always holds these artifacts, independent of where `AUTOCODE_CONFIG_DIR` points.
+All five are committed. Only the transient state files `.autocode/.impl-context` and `.autocode/.progress-last-sha` (written by `impl-start` and the progress hook) are gitignored; this list is canonical. `/autocode-setup` and `/autocode-update` scaffold `<repo-root>/.autocode/.gitignore` to ignore them, with `impl-start` as a backstop. The repo-root `.autocode/` always holds these artifacts, independent of where `AUTOCODE_CONFIG_DIR` points.
 
 ## DESIGN.md
 
@@ -148,6 +149,34 @@ Epic: <id>-<shortname>  Branch: <branch>  Started: <date>
 ```
 
 Entries capture lessons for any agent that later continues this unit or a sibling unit in the same epic. Written for both completed and abandoned units. `[<phase>]` is the emitting milestone name (`Plan`, `Execute`, `GapCheck`, `Fix`) and is optional: the workflow-driven fast path emits it, the git-derived fallback (standalone `impl-execute` via the Stop hook) omits it.
+
+## recap/<slug>/
+
+Per-unit recap folder, owned solely by that unit's worktree (no cross-file writes, so parallel units never contend). Holds `RECAP.md` and its sibling SVG assets. Written at the Recap phase, before Push. This is the canonical description of what `impl-recap` produces:
+
+```markdown
+# Recap: <slug>
+
+## Headline
+<one-line prose>
+
+## Narrative
+<prose, drawn from progress/<slug>.md>
+
+## Data / contract
+<mechanical: schema / API / CLI deltas from the diff>
+
+## File tree
+<mechanical: name-status rendered as a tree>
+
+## Key changes
+<3-8 SHA-pinned blob excerpts + infra SVG(s)>
+
+## Remaining
+<remaining_important + remaining_gaps, surfaced verbatim>
+```
+
+The relative-path SVG under `recap/<slug>/` renders in the `RECAP.md` file view even on a private repo; a PR-description raw-URL embed is gated separately (`gh repo view --json isPrivate`). `RECAP.md` pins only already-committed source blobs at the captured HEAD; it never pins itself or `PROGRESS.md`, both of which finalize in the later Push commit.
 
 ## Lifecycle
 
