@@ -32,3 +32,8 @@ Notes: the Recap-phase invocation itself (wiring it into `impl-workflow.mjs`) is
 
 Unit: #66
 Heavy, partitionable units with a large diff now size the diff first (sonnet agent), then run one `impl-gapcheck` agent per module plus a residual integration bucket in parallel, union and de-dupe the gaps, and feed the result into the existing gapfix + recheck loop unchanged. Small-heavy and non-partitionable units keep the single whole-diff agent. `impl-gapcheck/SKILL.md` documents the caller-supplied bounded scope this relies on.
+
+## recap-phase-wiring — 2026-07-05
+
+Unit: #69
+Wired the Recap phase into `impl-workflow.mjs`: a sonnet `impl-recap` dispatch now runs after Verify and before Push, building `recap/<slug>/RECAP.md` with SHA-pinned blob links at a self-captured HEAD. Added a converge gate that holds the just-opened PR in draft with a `needs-human` label and a marking comment when important findings or gaps remain unresolved after the fix loop. Hygiene now runs conditionally: a markdown/README predicate (`isHygieneRelevant`) checks `push.hygiene_files` and skips the `pr-hygiene` dispatch entirely when no doc-relevant path changed, logging the skip instead. `impl-push/SKILL.md`'s commit step now names the `recap/<slug>/` artifacts explicitly alongside `PROGRESS.md` and `progress/<slug>.md`.
