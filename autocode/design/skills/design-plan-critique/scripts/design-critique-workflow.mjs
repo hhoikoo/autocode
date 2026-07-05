@@ -3,7 +3,7 @@ export const meta = {
   description: 'Critique loop: generate questions, resolve via research, apply in place, cap 5',
   phases: [
     { title: 'Question', detail: "opus: generate this pass's follow-up questions", model: 'opus' },
-    { title: 'Resolve', detail: 'opus: research each question (researcher-only)', model: 'opus' },
+    { title: 'Resolve', detail: 'sonnet: research each question (researcher-only)', model: 'sonnet' },
     { title: 'Apply', detail: 'sonnet: write resolutions into units + DESIGN + critique log', model: 'sonnet' },
   ],
 }
@@ -96,7 +96,7 @@ while (iterations < MAX_ITERATIONS) {
           'Apply its resolution + source-citation rules (SKILL step 3 and Rules: every resolution cites its source). ' +
           'If research cannot close the question, set unresolved=true and explain why in `why`; do not abort.') +
         `\nQuestion JSON:\n${JSON.stringify(item)}`,
-      { label: `resolve-i${iterations}-${item.id}`, phase: 'Resolve', model: 'opus', schema: RESOLVE_SCHEMA },
+      { label: `resolve-i${iterations}-${item.id}`, phase: 'Resolve', model: 'sonnet', schema: RESOLVE_SCHEMA },
     )))
 
   const usable = resolved.filter(Boolean)
