@@ -33,13 +33,31 @@ const FANOUT = A.fanout || 'auto' // 'auto' | 'off' | 'on'
 const MAX_FIX_ROUNDS = 2
 const GAP_MAX_ROUNDS = 2
 
-// Subagents cannot spawn subagents, so all fan-out lives here in the workflow
-// runtime. Agents run skills by reading the canonical body by absolute path
-// (the skill catalog is not reliably visible to workflow agents).
+// Fan-out lives here in the workflow runtime to keep heavy work off the
+// launching context, not because nesting is impossible (nested subagents are
+// supported as of CC v2.1.172). Agents run skills by reading the canonical body
+// by absolute path (the skill catalog is not reliably visible to workflow agents).
 const skill = (name) => `${HOME}/.autocode/autocode/impl/skills/${name}/SKILL.md`
 const inWt = `Work in the git worktree at ${WT}: cd into it before doing anything. `
 const follow = (path, extra) => `Read the skill at ${path} and follow it exactly. ${extra}`
 const readOnly = 'You are a read-only reviewer: never edit, write, or run mutating commands. '
+
+// leanness: the spawned agent reads .impl-context for progress_log because the
+// workflow runtime does no file/git I/O (every agent() delegates it). Same
+// source the Stop hook reads. Facts (phase + verbatim note) fire the agent's
+// fast path, skipping git inspection.
+const progressLoggerAgent = `${HOME}/.autocode/autocode/impl/agents/progress-logger.md`
+const logProgress = (phase, note) =>
+  agent(
+    inWt + follow(progressLoggerAgent,
+      'Facts-provided fast path: skip the git-inspection steps. ' +
+      'Read `.autocode/.impl-context` (jq `.progress_log`) for the progress log path; ' +
+      `the unit slug is "${SLUG}". ` +
+      `Append the note below verbatim under a \`## <UTC timestamp> [${phase}]\` heading ` +
+      '(generate the UTC timestamp with `date -u`), appending via Bash `>>` and touching only that file. ' +
+      `Note: ${note}`),
+    { label: `log:${phase}`, phase, model: 'sonnet' },
+  )
 
 const PREP_SCHEMA = {
   type: 'object',
@@ -241,6 +259,7 @@ await agent(
     `Run it in --auto mode for unit ${SLUG}. It writes the mechanical plan to .autocode/.impl-plan.md. Return the plan path and a one-line summary.`),
   { label: 'plan', phase: 'Plan', model: 'opus' },
 )
+await logProgress('Plan', 'Plan phase: mechanical plan written to .autocode/.impl-plan.md.')
 
 phase('Partition')
 const part = await agent(
@@ -306,6 +325,7 @@ if (fanout) {
     { label: 'execute', phase: 'Execute', model: 'sonnet' },
   )
 }
+await logProgress('Execute', `Execute phase: plan implemented and committed${fanout ? ' (module fanout)' : ''}.`)
 
 let gapRoundsUsed = 0
 let remainingGaps = 0
@@ -332,6 +352,7 @@ if (heavy) {
   }
   gapRoundsUsed = gapRound
   remainingGaps = gap && gap.gaps ? gap.gaps.length : 0
+  await logProgress('GapCheck', `GapCheck phase: ${gapRoundsUsed} gap round(s); ${remainingGaps} gap(s) remaining.`)
 }
 
 let round = 0
@@ -346,6 +367,7 @@ while (importantOf(decided).length && round < MAX_FIX_ROUNDS) {
   )
   decided = await reviewCycle(`-r${round}`)
 }
+if (round > 0) await logProgress('Fix', `Fix phase: ${round} fix round(s); ${importantOf(decided).length} important finding(s) remaining.`)
 
 phase('Push')
 const push = await agent(
