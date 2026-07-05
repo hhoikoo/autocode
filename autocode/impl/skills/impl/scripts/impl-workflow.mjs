@@ -32,6 +32,7 @@ const DIMS = A.dims ? String(A.dims).split(',').map((d) => d.trim()).filter(Bool
 const FANOUT = A.fanout || 'auto' // 'auto' | 'off' | 'on'
 const MAX_FIX_ROUNDS = 2
 const GAP_MAX_ROUNDS = 2
+const GAP_FANOUT_MIN_LINES = 400 // leanness: bump if fan-out fires on small heavy units, drop if large ones slip through
 
 // Fan-out lives here in the workflow runtime to keep heavy work off the
 // launching context, not because nesting is impossible (nested subagents are
@@ -208,6 +209,13 @@ const GAPCHECK_SCHEMA = {
   required: ['complete', 'gaps'],
 }
 
+const DIFF_SIZE_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: { diff_lines: { type: 'integer' } },
+  required: ['diff_lines'],
+}
+
 const importantOf = (decided) => decided.actionable.filter((a) => a.severity === 'Important')
 
 async function reviewCycle(tag) {
@@ -327,12 +335,66 @@ await logProgress('Execute', `Execute phase: plan implemented and committed${fan
 let gapRoundsUsed = 0
 let remainingGaps = 0
 if (heavy) {
+  // Round-0 coverage sweep. Fan out per module for large, partitionable heavy
+  // units; else one whole-diff agent (small-heavy or non-partitionable fallback).
+  const gapPartitionable = plan.partitionable && plan.modules.length >= 2
+  let diffLines = 0
+  if (gapPartitionable) {
+    // No diff_lines exists at gapcheck time (prep.diff_lines is produced later,
+    // inside reviewCycle). The runtime never shells out, so a sonnet agent sizes.
+    const sized = await agent(
+      inWt + readOnly +
+        `Count changed lines across \`git diff ${BASE}...HEAD\`, \`git diff HEAD\`, and untracked files from \`git status --porcelain\`. Return { diff_lines }.`,
+      { label: 'gap-size', phase: 'GapCheck', model: 'sonnet', schema: DIFF_SIZE_SCHEMA },
+    )
+    diffLines = sized ? sized.diff_lines : 0
+  }
+  const gapFanout = gapPartitionable && diffLines > GAP_FANOUT_MIN_LINES
+
+  let gap
+  if (gapFanout) {
+    const moduleFiles = new Set(plan.modules.flatMap((m) => m.files))
+    const foundationFiles = plan.foundation ? plan.foundation.files : []
+    const residualCount = plan.files_total - new Set([...foundationFiles, ...moduleFiles]).size
+    // Skip integration only when the bucket is provably empty (no foundation and
+    // zero residual). residualCount === 0 here proves union covers files_total
+    // exactly, so the module checksum is asserted by arithmetic, not assumed.
+    const runIntegration = residualCount !== 0 || foundationFiles.length > 0
+    if (!runIntegration) log('gapcheck: empty integration bucket proven (residual 0, no foundation)')
+
+    const moduleChecks = plan.modules.map((m) => () =>
+      agent(
+        inWt + readOnly + follow(skill('impl-gapcheck'),
+          `Check spec completeness for the "${m.name}" module only. Bounded scope: the files ${JSON.stringify(m.files)} plus the "${m.name}" module plan item under \`## Module partition\`. Plan: .autocode/.impl-plan.md. Base ref: ${BASE}. Compute the diff yourself (\`git diff ${BASE}...HEAD\`, \`git diff HEAD\`, untracked via \`git status --porcelain\`) but check coverage of ONLY that scope. Return { complete, gaps }.`),
+        { label: `gapcheck-r0:${m.name}`, phase: 'GapCheck', model: 'opus', schema: GAPCHECK_SCHEMA },
+      ))
+    const integrationCheck = runIntegration ? [() =>
+      agent(
+        inWt + readOnly + follow(skill('impl-gapcheck'),
+          `Check spec completeness for the integration bucket only. Plan: .autocode/.impl-plan.md. Base ref: ${BASE}. Read the plan's per-file task list; the full in-scope planned-file count is ${plan.files_total}. Foundation files: ${JSON.stringify(foundationFiles)}. Union of all module files (checked elsewhere, EXCLUDE them): ${JSON.stringify([...moduleFiles])}. Compute residual = (all in-scope planned files) \\ (foundation U module files). Bounded scope: foundation files U residual files, plus any foundation/residual plan item. Compute the diff yourself (\`git diff ${BASE}...HEAD\`, \`git diff HEAD\`, untracked via \`git status --porcelain\`). Assert the checksum |foundation| + sum(|module files|) + |residual| == ${plan.files_total}; on mismatch (a module file absent from the plan, or a cross-group overlap) surface it as a gap citing the file and plan_item. Return { complete, gaps }.`),
+        { label: 'gapcheck-r0:integration', phase: 'GapCheck', model: 'opus', schema: GAPCHECK_SCHEMA },
+      )] : []
+
+    const results = await parallel(moduleChecks.concat(integrationCheck))
+    // Union gaps, de-dupe on file+plan_item (mirrors the finding de-dupe above).
+    const seenGap = new Set()
+    const gaps = []
+    for (const g of results.filter(Boolean).flatMap((r) => r.gaps || [])) {
+      const key = `${g.file}|${g.plan_item}`
+      if (seenGap.has(key)) continue
+      seenGap.add(key)
+      gaps.push(g)
+    }
+    gap = { complete: gaps.length === 0, gaps }
+  } else {
+    gap = await agent(
+      inWt + readOnly + follow(skill('impl-gapcheck'),
+        `Check spec completeness. Plan: .autocode/.impl-plan.md. Diff: compute it yourself via \`git diff ${BASE}...HEAD\`, \`git diff HEAD\`, and untracked files from \`git status --porcelain\`. Return { complete, gaps }.`),
+      { label: 'gapcheck-r0', phase: 'GapCheck', model: 'opus', schema: GAPCHECK_SCHEMA },
+    )
+  }
+
   let gapRound = 0
-  let gap = await agent(
-    inWt + readOnly + follow(skill('impl-gapcheck'),
-      `Check spec completeness. Plan: .autocode/.impl-plan.md. Diff: compute it yourself via \`git diff ${BASE}...HEAD\`, \`git diff HEAD\`, and untracked files from \`git status --porcelain\`. Return { complete, gaps }.`),
-    { label: 'gapcheck-r0', phase: 'GapCheck', model: 'opus', schema: GAPCHECK_SCHEMA },
-  )
   while (gap && !gap.complete && gap.gaps.length && gapRound < GAP_MAX_ROUNDS) {
     gapRound += 1
     log(`gap round ${gapRound}: ${gap.gaps.length} gap(s)`)
