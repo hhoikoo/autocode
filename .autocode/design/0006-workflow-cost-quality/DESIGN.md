@@ -2,7 +2,7 @@
 
 ## Summary
 
-Cut design and impl token/compaction cost and make unit PRs self-documenting and reviewable, without changing what either workflow produces. Nine units: downgrade design-workflow researcher dispatches to sonnet (and restore a dropped `args` JSON.parse guard); add workflow-driven per-phase progress logging; fold the Partition phase into the Plan agent's structured output; replace the full re-review after each fix with a scoped verify agent plus a convergence gate that draft-PRs unconverged units; fan gapcheck out per module with a whole-diff fallback and an integration bucket; add an SVG diagram guide; add an `impl-recap` phase with a canonical unit-PR-body recipe; and extend `pr-review` to act on RECAP.md-anchored comments. Five units edit `autocode/impl/skills/impl/scripts/impl-workflow.mjs`; they run in a strict linear chain so isolated worktrees never conflict on that file.
+Cut design and impl token/compaction cost and make unit PRs self-documenting and reviewable, without changing what either workflow produces. Nine units: downgrade design-workflow researcher dispatches to sonnet; add workflow-driven per-phase progress logging; fold the Partition phase into the Plan agent's structured output; replace the full re-review after each fix with a scoped verify agent plus a convergence gate that draft-PRs unconverged units; fan gapcheck out per module with a whole-diff fallback and an integration bucket; add an SVG diagram guide; add an `impl-recap` phase with a canonical unit-PR-body recipe; and extend `pr-review` to act on RECAP.md-anchored comments. Five units edit `autocode/impl/skills/impl/scripts/impl-workflow.mjs`; they run in a strict linear chain so isolated worktrees never conflict on that file.
 
 ## Background
 
@@ -12,7 +12,7 @@ Every improvement targets an existing, measured cost or gap in the two workflow 
 |---|---|---|
 | Design research dispatch | `autocode/design/skills/design-plan/scripts/design-plan-workflow.mjs:132,240` | Read-only `codebase-researcher` runs on opus |
 | Design critique resolve | `autocode/design/skills/design-plan-critique/scripts/design-critique-workflow.mjs:95` | Resolve wrapper (spawns a sonnet researcher) runs on opus |
-| Design args guard | both design workflow scripts, top of file | Missing the `typeof args === 'string' ? JSON.parse` guard that `impl-workflow.mjs:26` has (regression, dropped fix c5ffded) |
+| Design args guard | both design workflow scripts, top of file | Present via #57 (c5ffded); the unit verifies it survives rebase, no edit unless a later change drops it |
 | Progress logging | `plugins/autocode/hooks/check-progress-log.sh` (Stop hook) | Orphaned under fan-out: orchestrator cwd has no `.impl-context` and HEAD does not move there |
 | Partition phase | `impl-workflow.mjs:245-255` | A second sonnet agent re-reads `.impl-plan.md` to transcribe the partition the opus planner already wrote |
 | Fix loop | `impl-workflow.mjs:337-348` | Re-runs the whole `reviewCycle` (Prep/Review/Challenge/Decide, ~4-5 opus agents) after every `--fix` |
@@ -134,7 +134,7 @@ Workflow scripts have no unit-test harness; verification is by driving the affec
 
 | unit | deliverable | depends-on |
 |---|---|---|
-| [design-researchers-sonnet](units/design-researchers-sonnet.md) | Downgrade design-workflow researcher/resolve dispatches to sonnet and restore the `args` JSON.parse guard | (none) |
+| [design-researchers-sonnet](units/design-researchers-sonnet.md) | Downgrade design-workflow researcher/resolve dispatches to sonnet (args guard already present; verify-only) | (none) |
 | [workflow-progress-logging](units/workflow-progress-logging.md) | Add per-phase `logProgress` calls, a progress-logger fast path, and correct the stale subagent comment | (none) |
 | [svg-diagram-guide](units/svg-diagram-guide.md) | Add `_config/guides/svg-diagram.md` and point the design-folder Architecture bullet at it | workflow-progress-logging |
 | [plan-partition-schema](units/plan-partition-schema.md) | Fold the Partition phase into the opus Plan agent's structured output | workflow-progress-logging |
